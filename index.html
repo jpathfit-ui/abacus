@@ -1591,7 +1591,7 @@ function buildPrivatePreview(svc, sessions, invNum){
   invNum=invNum||v('inv-num-input')||'001';
   const total=sessions.reduce((a,s)=>a+(s.hrs||0)*(s.rate||0),0);
   const period=calcPeriod(sessions);
-  const invDate=v('inv-date-input');
+  const invDate=window._invDateOverride||v('inv-date-input');
   const terms=v('inv-terms');
   const rows=sessions.map(ss=>`<tr>
     <td class="col-date">${fmtDate(ss.date)}</td>
@@ -1642,7 +1642,7 @@ function buildGovPreview(svc, sessions, invNum){
   const invDate=v('inv-date-input');
   const fmtDateLong=(str)=>{if(!str)return'';const d=new Date(str+'T12:00:00');return d.getDate()+'-'+d.toLocaleDateString('en-CA',{month:'long'})+'-'+d.getFullYear();};
   const money=n=>'$'+(Math.round(n*100)%100===0?String(Math.round(n)):n.toFixed(2));
-  const rows=sessions.slice(0,12).map(ss=>({date:fmtDate(ss.date).replace(/\./g,'').replace(/(\w{3}) (\d+), (\d{4})/,'$2-$1-$3'),desc:govEsc(ss.service||'')+(ss.status&&ss.status!=='Happened'?' - <i>'+govEsc(ss.status)+'</i>':''),hrs:String(ss.hrs||0),rate:'$'+parseFloat(ss.rate||0).toFixed(2),amt:money((ss.hrs||0)*(ss.rate||0))}));
+  const rows=sessions.map(ss=>({date:fmtDate(ss.date).replace(/\./g,'').replace(/(\w{3}) (\d+), (\d{4})/,'$2-$1-$3'),desc:govEsc(ss.service||'')+(ss.status&&ss.status!=='Happened'?' - <i>'+govEsc(ss.status)+'</i>':''),hrs:String(ss.hrs||0),descText:(ss.service||'')+(ss.status&&ss.status!=='Happened'?' - '+ss.status:''),rate:'$'+parseFloat(ss.rate||0).toFixed(2),amt:money((ss.hrs||0)*(ss.rate||0))}));
   const toLines=[svc.payee||'',svc.payeeAddr1||''].concat((svc.payeeAddr2||'').split(/\s{2,}|\n/)).filter(Boolean);
   const forLines=[svc.for1||'',svc.for2||''].filter(Boolean);
   document.getElementById('inv-preview-doc').innerHTML=govPageHtml({name:p.name||'',contract:svc.contract||'',hst:svc.hst||'N/A',invNum:invNum,dateStr:fmtDateLong(invDate),addr:p.addr||'',city:p.city||'',phone:p.phone||'',email:svc.govEmail||'',toLines:toLines,forLines:forLines,rows:rows,subtotal:money(total),total:money(total),signature:p.signature||'',supervisor:svc.supervisor||'',supTitle:svc.supTitle||''});
@@ -1650,11 +1650,23 @@ function buildGovPreview(svc, sessions, invNum){
 }
 
 // ── Government invoice: fixed letter page (612x792 pt) matched to the original PAR form ──
+var _govCtx=null;
+function govFit(txt,maxW,size,bold){
+  try{_govCtx=_govCtx||document.createElement('canvas').getContext('2d');}catch(e){return size;}
+  var sz=size;
+  while(sz>5.5){_govCtx.font=(bold?'bold ':'')+sz+'px Arial, Helvetica, sans-serif';if(_govCtx.measureText(txt).width<=maxW)break;sz-=0.25;}
+  return sz;
+}
 function govEsc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 function govPageHtml(o){
+  var all=o.rows||[];var np=Math.max(1,Math.ceil(all.length/12));var out='';
+  for(var pg=0;pg<np;pg++){out+=govOnePage(Object.assign({},o,{rows:all.slice(pg*12,pg*12+12),pg:pg+1,np:np,last:pg===np-1}));}
+  return out;
+}
+function govOnePage(o){
   var F="font-family:Arial,Helvetica,'Liberation Sans',sans-serif;";
   function T(x,cy,txt,size,opt){
-    opt=opt||{};var lh=Math.round(size*1.2*100)/100;var top=Math.round((cy-lh/2)*100)/100;
+    opt=opt||{};if(opt.maxW){size=govFit(opt.plain!=null?opt.plain:String(txt).replace(/<[^>]*>/g,'').replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>'),opt.maxW,size,opt.bold);}var lh=Math.round(size*1.2*100)/100;var top=Math.round((cy-lh/2)*100)/100;
     var w=opt.w||0,al=opt.align||'left',left=x;
     if(al==='center'){left=x-w/2;} else if(al==='right'){left=x-w;}
     return '<div style="position:absolute;left:'+left+'px;top:'+top+'px;'+(w?'width:'+w+'px;':'')+'text-align:'+al+';font-size:'+size+'px;line-height:'+lh+'px;white-space:nowrap;'+(opt.bold?'font-weight:700;':'')+(opt.color?'color:'+opt.color+';':'')+(opt.italic?'font-style:italic;':'')+'">'+txt+'</div>';
@@ -1665,9 +1677,9 @@ function govPageHtml(o){
   var h='<div class="gov-page" style="position:relative;width:612px;height:792px;background:#fff;color:#000;overflow:hidden;'+F+'">';
   // header block
   h+=T(41.4,35.5,'Facilitator Name:',13.2,{bold:1});
-  h+=T(153.8,35,govEsc(o.name),12);
+  h+=T(153.8,35,govEsc(o.name),12,{maxW:300});
   h+=T(41.4,58.5,'Contract #:',13.4,{bold:1});
-  h+=T(129.7,57.6,govEsc(o.contract),12);
+  h+=T(129.7,57.6,govEsc(o.contract),12,{maxW:250});
   h+=T(41.4,81.5,'HST #:',13.4,{bold:1});
   h+=T(157,81,govEsc(o.hst),12);
   h+=T(573,33.5,'INVOICE',22,{bold:1,color:'#808080',align:'right',w:120});
@@ -1679,18 +1691,18 @@ function govPageHtml(o){
   h+=R(505.4,143.5,76.6,0.6);
   // address
   h+=T(41.4,117.4,'Facilitator street address:',8.6);
-  h+=T(153.7,117.4,govEsc(o.addr),8.6);
+  h+=T(153.7,117.4,govEsc(o.addr),8.6,{maxW:290});
   h+=T(41.4,128.5,'City, Province, Postal Code:',8.6);
-  h+=T(153,128,govEsc(o.city),8.6);
+  h+=T(153,128,govEsc(o.city),8.6,{maxW:290});
   h+=T(41.4,139.9,'Phone:',8.6);
-  h+=T(152.7,140.4,govEsc(o.phone),8.6);
+  h+=T(152.7,140.4,govEsc(o.phone),8.6,{maxW:290});
   h+=T(41.4,152.7,'Email:',8.6);
-  h+=T(152,155.1,govEsc(o.email),8.6);
+  h+=T(152,155.1,govEsc(o.email),8.6,{maxW:290});
   // TO / FOR
   h+=T(41.4,185.1,'TO:',8.3,{bold:1});
-  var ty=195.6;(o.toLines||[]).forEach(function(l){h+=T(41.4,ty,govEsc(l),8.6);ty+=11.3;});
+  var ty=195.6;(o.toLines||[]).forEach(function(l){h+=T(41.4,ty,govEsc(l),8.6,{maxW:250});ty+=11.3;});
   h+=T(311.4,182.6,'FOR:',8.3,{bold:1});
-  var fy=192.9;(o.forLines||[]).forEach(function(l){h+=T(311.4,fy,govEsc(l),8.6);fy+=11.3;});
+  var fy=192.9;(o.forLines||[]).forEach(function(l){h+=T(311.4,fy,govEsc(l),8.6,{maxW:260});fy+=11.3;});
   // table frame
   var top=252.5,hdrB=272.6,subB=311.5,rowH=19.18,nRows=12,bodyB=subB+rowH*nRows;
   h+=R(36,top,540.3,1.44);
@@ -1702,8 +1714,9 @@ function govPageHtml(o){
   h+=R(142.1,hdrB,0.48,bodyB-hdrB);
   h+=R(346.3,top,0.48,bodyB-top);
   h+=R(422.9,top,0.48,bodyB-top);
-  h+=R(499.5,top,0.48,599.8-top);
-  h+=R(575.8,top,0.48,599.8-top);
+  var vEnd=o.last?599.8:bodyB;
+  h+=R(499.5,top,0.48,vEnd-top);
+  h+=R(575.8,top,0.48,vEnd-top);
   // header text
   h+=T(191,262.1,'DESCRIPTION',8.7,{bold:1,align:'center',w:210});
   h+=T(384.7,262.1,'HOURS',8.7,{bold:1,align:'center',w:70});
@@ -1726,13 +1739,16 @@ function govPageHtml(o){
     var r=(o.rows||[])[i];
     if(r){
       var cy=ry+9.9;
-      h+=T(89.2,cy,govEsc(r.date),12,{align:'center',w:104});
-      h+=T(145.8,cy,r.desc,12);
-      h+=T(384.7,cy,govEsc(r.hrs),12,{align:'center',w:72});
-      h+=T(461.1,cy,govEsc(r.rate),12,{align:'center',w:72});
-      h+=T(537.6,cy,govEsc(r.amt),12,{align:'center',w:72});
+      h+=T(89.2,cy,govEsc(r.date),12,{align:'center',w:104,maxW:100});
+      h+=T(145.8,cy,r.desc,12,{maxW:196,plain:r.descText});
+      h+=T(384.7,cy,govEsc(r.hrs),12,{align:'center',w:72,maxW:68});
+      h+=T(461.1,cy,govEsc(r.rate),12,{align:'center',w:72,maxW:68});
+      h+=T(537.6,cy,govEsc(r.amt),12,{align:'center',w:72,maxW:68});
     }
   }
+  if(o.np>1){h+=T(573,14,'Page '+o.pg+' of '+o.np,8.6,{align:'right',w:100,color:'#555'});}
+  if(!o.last){h+=T(306,bodyB+14,'Continued on next page',8.6,{align:'center',w:300,italic:1,color:'#555'});}
+  if(o.last){
   // footer rows
   var fyTop=bodyB;
   h+=R(36,fyTop+rowH-0.24,540.3,0.48);
@@ -1756,18 +1772,18 @@ function govPageHtml(o){
   h+=T(41.8,638.6,'Facilitator Signature',8.6);
   h+=R(40.3,679.7,531.4,1.44);
   h+=T(41.8,686.3,'Payment Authorization',8.6);
-  h+=T(41.8,696.9,govEsc(o.supervisor),8.6);
-  h+=T(41.8,707.9,govEsc(o.supTitle),8.6);
+  h+=T(41.8,696.9,govEsc(o.supervisor),8.6,{maxW:500});
+  h+=T(41.8,707.9,govEsc(o.supTitle),8.6,{maxW:500});
+  }
   h+='</div>';
-  return '<div class="gov-fit" style="margin:0 auto;overflow:hidden">'+h+'</div>';
+  return '<div class="gov-fit" style="margin:0 auto 10px;overflow:hidden">'+h+'</div>';
 }
 function fitGovPreview(){
   var el=document.getElementById('inv-preview-doc');if(!el)return;
-  var page=el.querySelector('.gov-page'),fit=el.querySelector('.gov-fit');if(!page||!fit)return;
+  var pages=el.querySelectorAll('.gov-page'),fits=el.querySelectorAll('.gov-fit');if(!pages.length)return;
   var avail=el.clientWidth||Math.max(280,Math.min(window.innerWidth-48,612));
   var s=Math.min(1,avail/612);
-  page.style.transformOrigin='0 0';page.style.transform='scale('+s+')';
-  fit.style.width=(612*s)+'px';fit.style.height=(792*s)+'px';
+  for(var i=0;i<pages.length;i++){pages[i].style.transformOrigin='0 0';pages[i].style.transform='scale('+s+')';fits[i].style.width=(612*s)+'px';fits[i].style.height=(792*s)+'px';}
 }
 window.addEventListener('resize',function(){try{fitGovPreview();}catch(e){}});
 
@@ -2156,16 +2172,17 @@ initSignature();
 // ── PDF capture (renders an offscreen clone so modals/scroll never clip it) ──
 async function captureInvoiceCanvas(width){
   const src=document.getElementById('inv-preview-doc');
-  const gp=src.querySelector('.gov-page');
+  const gps=src.querySelectorAll('.gov-page');
   const wrap=document.createElement('div');
-  if(gp){
-    wrap.style.cssText='position:fixed;left:-10000px;top:0;width:612px;height:792px;background:#fff;pointer-events:none';
-    const c=gp.cloneNode(true);c.style.transform='none';c.style.transformOrigin='0 0';
-    wrap.appendChild(c);document.body.appendChild(wrap);
+  if(gps.length){
+    wrap.style.cssText='position:fixed;left:-10000px;top:0;width:612px;background:#fff;pointer-events:none';
+    const cl=[];gps.forEach(g=>{const c=g.cloneNode(true);c.style.transform='none';c.style.transformOrigin='0 0';c.style.marginBottom='0';wrap.appendChild(c);cl.push(c);});
+    document.body.appendChild(wrap);
     try{
       if(document.fonts&&document.fonts.ready){try{await document.fonts.ready;}catch(e){}}
-      const cv=await html2canvas(c,{scale:3,useCORS:true,backgroundColor:'#fff',logging:false,width:612,height:792,windowWidth:612,windowHeight:792,scrollX:0,scrollY:0});
-      cv._fullPage=true;return cv;
+      const cvs=[];
+      for(const c of cl){const cv=await html2canvas(c,{scale:3,useCORS:true,backgroundColor:'#fff',logging:false,width:612,height:792,windowWidth:612,windowHeight:792,scrollX:0,scrollY:0});cv._fullPage=true;cvs.push(cv);}
+      cvs[0]._more=cvs.slice(1);return cvs[0];
     }finally{wrap.remove();}
   }
   wrap.style.cssText='position:fixed;left:-10000px;top:0;width:'+width+'px;background:#fff;pointer-events:none';
@@ -2178,7 +2195,7 @@ async function captureInvoiceCanvas(width){
 }
 function addCanvasToPdf(doc,canvas){
   const pW=doc.internal.pageSize.getWidth(),pH=doc.internal.pageSize.getHeight();
-  if(canvas._fullPage){doc.addImage(canvas.toDataURL('image/jpeg',0.92),'JPEG',0,0,pW,pH,undefined,'FAST');return;}
+  if(canvas._fullPage){doc.addImage(canvas.toDataURL('image/jpeg',0.92),'JPEG',0,0,pW,pH,undefined,'FAST');(canvas._more||[]).forEach(function(c){doc.addPage();doc.addImage(c.toDataURL('image/jpeg',0.92),'JPEG',0,0,pW,pH,undefined,'FAST');});return;}
   const margin=36;
   let w=pW-margin*2,h=(canvas.height/canvas.width)*w;
   const maxH=pH-margin*2;
