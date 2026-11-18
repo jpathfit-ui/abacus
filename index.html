@@ -151,6 +151,8 @@ html,body{height:100%;overflow:hidden;font-family:'Inter',sans-serif;background:
 .svc-meta{font-size:11px;color:var(--text-s);margin-top:1px}
 .svc-type-badge{display:inline-block;font-size:9px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;padding:2px 6px;border-radius:4px;margin-top:3px}
 .svc-type-badge.private{background:var(--p-soft);color:var(--p-mid)}
+.svc-type-badge.custom{background:var(--p-soft);color:var(--p-mid)}
+#pl-boxes [data-k]:not(.sel) .pl-aux{display:none}
 .svc-type-badge.government{background:#FFF8DC;color:#8B6914;border:1px solid #E8C830}
 .svc-remove{background:#FCE4D6;border:none;border-radius:6px;color:var(--danger);font-size:14px;width:28px;height:28px;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0}
 .tpl-row{display:flex;align-items:center;padding:7px 0;border-bottom:1px solid var(--cream-b)}
@@ -267,7 +269,7 @@ table.gov-tbl{width:100%;border-collapse:collapse;table-layout:fixed;font-size:9
       </div>
     </div>
     <div class="service-bar">
-      <span class="service-label">Service</span>
+      <span class="service-label">Workplace</span>
       <select class="service-select" id="active-service-select" onchange="switchService(this.value)"></select>
     </div>
     </div>
@@ -343,8 +345,8 @@ table.gov-tbl{width:100%;border-collapse:collapse;table-layout:fixed;font-size:9
     <!-- REPORTS -->
     <div class="screen" id="screen-reports">
       <div class="card" style="margin-bottom:12px">
-        <div class="card-head">Filter by service</div>
-        <div class="card-body"><div class="field"><select id="rep-service-filter" onchange="renderReports()"><option value="all">All services</option></select></div></div>
+        <div class="card-head">Filter by workplace</div>
+        <div class="card-body"><div class="field"><select id="rep-service-filter" onchange="renderReports()"><option value="all">All workplaces</option></select></div></div>
       </div>
       <div class="stat-grid">
         <div class="stat-card"><div class="stat-label">YTD Earned</div><div class="stat-value" id="rep-ytd">$0</div></div>
@@ -360,6 +362,13 @@ table.gov-tbl{width:100%;border-collapse:collapse;table-layout:fixed;font-size:9
 
     <!-- SETTINGS -->
     <div class="screen" id="screen-settings">
+      <div class="card" id="wp-card">
+        <div class="card-head">Workplaces <button class="btn btn-sm btn-secondary" onclick="openWorkplaceModal()" style="padding:5px 10px;font-size:11px;width:auto">＋ Add</button></div>
+        <div class="card-body">
+          <div id="services-list"></div>
+          <p style="font-size:11px;color:var(--text-s);margin-top:10px;line-height:1.5">Each workplace keeps its own invoice template, contract number, billing scenarios and invoice numbers. Switch workplaces from the bar at the top.</p>
+        </div>
+      </div>
       <div class="card">
         <div class="card-head">Google Sheets</div>
         <div class="card-body">
@@ -379,7 +388,7 @@ table.gov-tbl{width:100%;border-collapse:collapse;table-layout:fixed;font-size:9
           </div>
           <button class="btn btn-danger-ghost" id="sig-remove-btn" type="button" style="margin-top:10px;display:none">Remove signature</button>
           <input type="file" id="sig-file" accept="image/*" style="display:none">
-          <div style="font-size:12px;color:#888;margin-top:10px;line-height:1.4">Appears above the Facilitator Signature line on government invoices. Without one, your name is shown in a signature style font.</div>
+          <div style="font-size:12px;color:#888;margin-top:10px;line-height:1.4">Appears on the signature line of your invoices, in the spot you choose for each workplace. Without one, your name is shown in a signature style font.</div>
         </div>
       </div>
       <div class="card">
@@ -391,7 +400,7 @@ table.gov-tbl{width:100%;border-collapse:collapse;table-layout:fixed;font-size:9
           <div class="field"><label>Phone</label><input type="text" id="s-phone" oninput="saveSettings()"></div>
         </div>
       </div>
-      <div class="card">
+      <div class="card" id="par-config-card">
         <div class="card-head">PAR Configuration</div>
         <div class="card-body">
           <div class="field">
@@ -403,17 +412,13 @@ table.gov-tbl{width:100%;border-collapse:collapse;table-layout:fixed;font-size:9
         </div>
       </div>
       <div class="card">
-        <div class="card-head">PAR Billing Rules <span style="font-size:9px;font-weight:400;text-transform:none;letter-spacing:0;color:var(--text-s)">tap a row to edit hours</span></div>
+        <div class="card-head"><span id="rules-card-title">Billing Scenarios</span> <span style="font-size:9px;font-weight:400;text-transform:none;letter-spacing:0;color:var(--text-s)">tap a row to edit hours</span></div>
         <div class="card-body" style="padding:0;overflow:hidden">
           <table class="rules-table" id="billing-rules-table"></table>
         </div>
       </div>
-      <div class="card">
-        <div class="card-head">Services / Companies <button class="btn btn-sm btn-secondary" onclick="openAddService()" style="padding:5px 10px;font-size:11px;width:auto">＋ Add</button></div>
-        <div class="card-body"><div id="services-list"></div></div>
-      </div>
-      <div class="card">
-        <div class="card-head">TR Session Templates</div>
+      <div class="card" id="tpl-card">
+        <div class="card-head"><span id="tpl-card-title">Session Descriptions</span></div>
         <div class="card-body">
           <div id="templates-list"></div>
           <div class="field-row" style="margin-top:10px">
@@ -423,8 +428,8 @@ table.gov-tbl{width:100%;border-collapse:collapse;table-layout:fixed;font-size:9
         </div>
       </div>
       <div style="display:flex;flex-direction:column;gap:8px;margin:0 14px 12px">
-        <button class="btn btn-danger-ghost" onclick="clearSessionsOnly()">Clear sessions (this service)</button>
-        <button class="btn btn-danger-ghost" onclick="clearInvoiceLogOnly()">Clear invoice log (this service)</button>
+        <button class="btn btn-danger-ghost" onclick="clearSessionsOnly()">Clear sessions (this workplace)</button>
+        <button class="btn btn-danger-ghost" onclick="clearInvoiceLogOnly()">Clear invoice log (this workplace)</button>
         <button class="btn btn-danger-ghost" onclick="clearAllData()">Clear everything</button>
       </div>
     </div>
@@ -557,53 +562,110 @@ table.gov-tbl{width:100%;border-collapse:collapse;table-layout:fixed;font-size:9
   </div>
 </div>
 
-<!-- ADD SERVICE MODAL -->
-<div class="modal-overlay" id="modal-add-service">
+<!-- WORKPLACE MODAL (add and edit) -->
+<div class="modal-overlay" id="modal-workplace">
   <div class="modal-sheet">
     <div class="modal-handle"></div>
-    <div class="modal-head"><div class="modal-title">Add Service</div><button class="modal-close" onclick="closeModal('modal-add-service')">✕</button></div>
+    <div class="modal-head"><div class="modal-title" id="wp-title">Add Workplace</div><button class="modal-close" onclick="closeModal('modal-workplace')">✕</button></div>
     <div class="modal-body">
-      <div class="field"><label>Service Name</label><input type="text" id="ns-name" placeholder="e.g. PAR Facilitation"></div>
-      <div class="field"><label>Invoice Template</label>
-        <select id="ns-template" onchange="onTemplateChange(this.value)">
-          <option value="private">Private — clean format with EMT payment</option>
-          <option value="government">Government — formal PAR format with contract # and signature</option>
-        </select>
-      </div>
-      <div id="ns-private-fields">
-        <div class="field"><label>Company Name</label><input type="text" id="ns-company"></div>
-        <div class="field"><label>Client Name</label><input type="text" id="ns-client"></div>
-        <div class="field"><label>Client Email</label><input type="email" id="ns-client-email"></div>
-        <div class="field"><label>Your EMT Email</label><input type="email" id="ns-emt"></div>
-        <div class="field"><label>Thank You Message</label><textarea id="ns-thankyou">Thank you for your continued partnership and support.</textarea></div>
-        <div class="field">
-          <label>Payment Message</label>
-          <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
-            <label style="display:flex;align-items:center;gap:7px;cursor:pointer;text-transform:none;letter-spacing:0;font-size:13px;font-weight:500;color:var(--text-d)">
-              <input type="checkbox" id="ns-show-payment" checked style="width:16px;height:16px;accent-color:var(--p-mid)">
-              Show payment instructions on invoice
-            </label>
+      <div class="field"><label>Workplace Name</label><input type="text" id="wp-name" placeholder="e.g. Community Centre"></div>
+      <div id="wp-mode-wrap">
+        <div class="field"><label>Invoice Format</label>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+            <button type="button" id="wp-mode-upload" onclick="setWpMode('upload')">Upload my template</button>
+            <button type="button" id="wp-mode-general" onclick="setWpMode('general')">Use a general template</button>
           </div>
-          <textarea id="ns-payment-msg" style="height:80px">Please remit payment via Interac e-Transfer. Include the invoice # as the reference.</textarea>
+        </div>
+        <div class="field" id="wp-general-wrap" style="display:none">
+          <div style="font-size:12px;color:var(--text-s);line-height:1.5">No invoice of your own? This is a clean, standard invoice with your name, bill to, invoice number, date, contract number, line items, total and signature already in place. You can adjust it afterwards or swap in your own file.</div>
+        </div>
+        <div class="field" id="wp-upload-wrap">
+          <input type="file" id="wp-file" accept="application/pdf,image/*" onchange="onWpFile(this)">
+          <div id="wp-file-status" style="font-size:12px;color:var(--text-s);margin-top:8px;line-height:1.5"></div>
+          <button type="button" class="btn btn-ghost btn-sm" onclick="openPrompt('invoice')" style="width:auto;padding:8px 12px;font-size:12px;margin-top:8px">No invoice file? Get a prompt to make one</button>
         </div>
       </div>
-      <div id="ns-gov-fields" style="display:none">
-        <div class="field"><label>Contract #</label><input type="text" id="ns-contract"></div>
-        <div class="field"><label>HST #</label><input type="text" id="ns-hst" value="N/A"></div>
-        <div class="field"><label>Your Email</label><input type="email" id="ns-gov-email"></div>
-        <div class="field"><label>Payee Name</label><input type="text" id="ns-payee"></div>
-        <div class="field"><label>Payee Address 1</label><input type="text" id="ns-payee-addr1"></div>
-        <div class="field"><label>Payee City / Postal</label><input type="text" id="ns-payee-addr2"></div>
-        <div class="field"><label>For Line 1</label><input type="text" id="ns-for1"></div>
-        <div class="field"><label>For Line 2</label><input type="text" id="ns-for2"></div>
-        <div class="field"><label>Supervisor</label><input type="text" id="ns-supervisor"></div>
-        <div class="field"><label>Supervisor Title</label><input type="text" id="ns-sup-title"></div>
+      <div class="field" id="wp-logo-wrap" style="display:none">
+        <label>Logo (optional)</label>
+        <input type="file" id="wp-logo" accept="image/*" onchange="onWpLogo(this)">
+        <div id="wp-logo-status" style="font-size:12px;color:var(--text-s);margin-top:8px;line-height:1.5"></div>
+        <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
+          <button type="button" class="btn btn-secondary btn-sm" onclick="openPrompt('logo')" style="width:auto;padding:8px 12px;font-size:12px">Get a prompt to make a logo</button>
+          <button type="button" class="btn btn-ghost btn-sm" onclick="removeWpLogo()" style="width:auto;padding:8px 12px;font-size:12px">Remove logo</button>
+        </div>
+      </div>
+      <div id="wp-dynamic"></div>
+      <div id="wp-contract-restart" style="display:none;background:var(--p-soft);border-radius:8px;padding:12px;margin-bottom:12px">
+        <label style="display:flex;align-items:flex-start;gap:8px;cursor:pointer;text-transform:none;letter-spacing:0;font-size:13px;font-weight:600;color:var(--text-d)">
+          <input type="checkbox" id="wp-new-contract" checked style="width:18px;height:18px;margin-top:1px;accent-color:var(--p-mid);flex-shrink:0">
+          This is a new contract. Restart invoice numbers at 001.
+        </label>
+        <div style="font-size:11px;color:var(--text-s);margin-top:6px;line-height:1.5">Leave unchecked if you are only fixing a typo. Your invoice numbers will keep counting.</div>
       </div>
       <div class="field-row">
-        <div class="field"><label>Default Rate</label><input type="number" id="ns-rate" value="40" step="5"></div>
-        <div class="field"><label>Default Hours</label><input type="number" id="ns-hrs" value="1" step="0.5"></div>
+        <div class="field"><label>Default Rate</label><input type="number" id="wp-rate" value="40" step="5"></div>
+        <div class="field"><label>Default Hours</label><input type="number" id="wp-hrs" value="1" step="0.5"></div>
       </div>
-      <button class="btn btn-primary" onclick="confirmAddService()">Add Service</button>
+      <div id="wp-tpl-tools" style="display:none;margin-bottom:12px">
+        <button type="button" class="btn btn-secondary" onclick="closeModal('modal-workplace');openPlacement(wpEditId)">Adjust Field Placement</button>
+        <div class="field" style="margin-top:12px"><label>Replace Template File</label><input type="file" id="wp-replace-file" accept="application/pdf,image/*" onchange="onWpReplaceFile(this)"></div>
+      </div>
+      <button class="btn btn-primary" id="wp-save-btn" onclick="saveWorkplace()">Add Workplace</button>
+    </div>
+  </div>
+</div>
+
+<!-- PROMPT MODAL (copy a prompt for Claude or ChatGPT) -->
+<div class="modal-overlay" id="modal-prompt">
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <div class="modal-head"><div class="modal-title" id="prompt-title">Prompt</div><button class="modal-close" onclick="closeModal('modal-prompt')">✕</button></div>
+    <div class="modal-body">
+      <div id="prompt-help" style="font-size:12px;color:var(--text-s);line-height:1.5;margin-bottom:10px"></div>
+      <div class="field"><textarea id="prompt-text" readonly style="height:260px;font-size:13px;line-height:1.5"></textarea></div>
+      <button class="btn btn-primary" onclick="copyPrompt()">Copy prompt</button>
+    </div>
+  </div>
+</div>
+
+<!-- TEMPLATE PLACEMENT MODAL -->
+<div class="modal-overlay" id="modal-placement" data-sticky="1">
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <div class="modal-head"><div class="modal-title">Place Your Fields <span id="pl-title-sub" style="font-weight:400;font-size:12px;color:var(--text-s)"></span></div><button class="modal-close" onclick="cancelPlacement()">✕</button></div>
+    <div class="modal-body">
+      <div style="font-size:12px;color:var(--text-s);line-height:1.5;margin-bottom:10px">Tap a field to add it, then drag it onto the matching spot on your template. Drag the round handle to resize. The sample text shows exactly how it will print.</div>
+      <div id="pl-chips" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px"></div>
+      <div style="display:flex;gap:8px;margin-bottom:8px">
+        <button type="button" id="pl-zoom-fit" onclick="plSetZoom(1)">Fit to screen</button>
+        <button type="button" id="pl-zoom-big" onclick="plSetZoom(2)">Zoom in</button>
+      </div>
+      <div id="pl-host" style="overflow:auto;border:1.5px solid var(--cream-b);border-radius:10px;background:#ddd;max-height:60dvh;padding:14px 8px 8px">
+        <div id="pl-stage" style="position:relative;background:#fff"></div>
+      </div>
+      <div style="margin-top:14px;font-size:10px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--p-mid)">Line item layout</div>
+      <div class="field-row" style="margin-top:8px">
+        <div class="field"><label>Row height (pt)</label><input type="number" id="pl-rowh" step="1" min="6" oninput="plSetting()"></div>
+        <div class="field"><label>Text size (pt)</label><input type="number" id="pl-fs" step="0.5" min="5" oninput="plSetting()"></div>
+      </div>
+      <div style="font-size:11px;color:var(--text-s);margin:2px 0 6px">Column widths (relative)</div>
+      <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:6px">
+        <div class="field" style="margin:0"><label style="font-size:9px">Date</label><input type="number" id="pl-c0" min="1" oninput="plSetting()" style="padding:8px 6px;font-size:13px"></div>
+        <div class="field" style="margin:0"><label style="font-size:9px">Details</label><input type="number" id="pl-c1" min="1" oninput="plSetting()" style="padding:8px 6px;font-size:13px"></div>
+        <div class="field" style="margin:0"><label style="font-size:9px">Hours</label><input type="number" id="pl-c2" min="1" oninput="plSetting()" style="padding:8px 6px;font-size:13px"></div>
+        <div class="field" style="margin:0"><label style="font-size:9px">Rate</label><input type="number" id="pl-c3" min="1" oninput="plSetting()" style="padding:8px 6px;font-size:13px"></div>
+        <div class="field" style="margin:0"><label style="font-size:9px">Amount</label><input type="number" id="pl-c4" min="1" oninput="plSetting()" style="padding:8px 6px;font-size:13px"></div>
+      </div>
+      <div style="font-size:11px;color:var(--text-s);margin:10px 0 6px">Column alignment</div>
+      <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:6px">
+        <div class="field" style="margin:0"><select id="pl-a0" onchange="plSetting()" style="padding:8px 4px;font-size:12px"><option value="left">Left</option><option value="center">Center</option><option value="right">Right</option></select></div>
+        <div class="field" style="margin:0"><select id="pl-a1" onchange="plSetting()" style="padding:8px 4px;font-size:12px"><option value="left">Left</option><option value="center">Center</option><option value="right">Right</option></select></div>
+        <div class="field" style="margin:0"><select id="pl-a2" onchange="plSetting()" style="padding:8px 4px;font-size:12px"><option value="left">Left</option><option value="center">Center</option><option value="right">Right</option></select></div>
+        <div class="field" style="margin:0"><select id="pl-a3" onchange="plSetting()" style="padding:8px 4px;font-size:12px"><option value="left">Left</option><option value="center">Center</option><option value="right">Right</option></select></div>
+        <div class="field" style="margin:0"><select id="pl-a4" onchange="plSetting()" style="padding:8px 4px;font-size:12px"><option value="left">Left</option><option value="center">Center</option><option value="right">Right</option></select></div>
+      </div>
+      <button class="btn btn-primary" onclick="savePlacement()" style="margin-top:16px">Save Placement</button>
+      <button class="btn btn-ghost" onclick="cancelPlacement()" style="margin-top:8px">Cancel</button>
     </div>
   </div>
 </div>
@@ -633,27 +695,7 @@ table.gov-tbl{width:100%;border-collapse:collapse;table-layout:fixed;font-size:9
   </div>
 </div>
 
-<!-- ADD RULE MODAL -->
-/div>
-</div>
-
-<div class="modal-overlay" id="modal-add-rule">
-  <div class="modal-sheet">
-    <div class="modal-handle"></div>
-    <div class="modal-head"><div class="modal-title">Add Billing Scenario</div><button class="modal-close" onclick="closeModal('modal-add-rule')">✕</button></div>
-    <div class="modal-body">
-      <div id="add-rule-cat-label" style="font-size:12px;font-weight:600;color:var(--navy-mid);margin-bottom:14px;text-transform:uppercase;letter-spacing:.07em"></div>
-      <div class="field"><label>Scenario Name</label><input type="text" id="new-rule-name" placeholder="e.g. Client left early"></div>
-      <div class="field"><label>Billed Hours</label><input type="number" id="new-rule-hours" value="1" step="0.5" min="0" max="10"></div>
-      <button class="btn btn-primary" onclick="confirmAddRule()">Add Scenario</button>
-    </div>
-  </div>
-</div>
-
-<!-- ADD RULE MODAL -->
-/div>
-</div>
-
+<!-- ADD BILLING SCENARIO MODAL -->
 <div class="modal-overlay" id="modal-add-billing-rule">
   <div class="modal-sheet">
     <div class="modal-handle"></div>
@@ -754,6 +796,59 @@ let state = {
 };
 let editingRuleId = null;
 
+// ── Workplace helpers ─────────────────────────────────────
+// Billing scenarios belong to one workplace (rule.svcId). Government (PAR format)
+// workplaces share the built-in PAR scenarios because the PAR session types
+// refer to them by fixed id.
+function rulesSvcId(svc){ return svc&&svc.templateType==='government' ? 'svc_par_default' : (svc?svc.id:''); }
+function svcCat(svc){ return !svc||svc.templateType==='government' ? '' : (svc.id==='svc_tr_default'?'tr':'custom'); }
+function ruleSectionsFor(svc){
+  if(svc&&svc.templateType==='government') return [
+    {label:'PAR 1:1 Regular', cat:'11'},{label:'PAR 1:1 MCIS', cat:'mcis'},
+    {label:'PAR Group', cat:'group'},{label:'PAR Team Meeting', cat:'meeting'}];
+  return [{label:svcCat(svc)==='tr'?'TR Sessions':'Scenarios', cat:svcCat(svc)||'custom'}];
+}
+// Status choices offered when adding a session to the active (non-PAR) workplace.
+function svcStatuses(svc){
+  svc=svc||activeSvc()||{};
+  if(svc.templateType==='government') return PAR_STATUSES;
+  const mine=state.billingRules.filter(r=>r.svcId===svc.id);
+  if(svc.id==='svc_tr_default'){
+    const known=new Set(TR_STATUSES.map(s=>s.ruleId));
+    return TR_STATUSES.filter(s=>mine.some(r=>r.id===s.ruleId))
+      .concat(mine.filter(r=>!known.has(r.id)).map(r=>({value:r.label,ruleId:r.id})));
+  }
+  return mine.map(r=>({value:r.label,ruleId:r.id}));
+}
+// Invoice numbers count per workplace and per contract, so a new contract restarts at 001.
+function svcLog(sid){
+  const s=state.services.find(x=>x.id===sid)||{}, c=s.contract||'';
+  return state.invoiceLog.filter(i=>i.serviceId===sid&&(i.contract||'')===c);
+}
+function lastInvNum(sid){
+  const l=svcLog(sid);
+  return l.length ? Math.max.apply(null,l.map(i=>parseInt(i.num)||0)) : 0;
+}
+function migrateState(){
+  if(!Array.isArray(state.billingRules)||!state.billingRules.length) state.billingRules=JSON.parse(JSON.stringify(DEFAULT_PAR_RULES));
+  state.billingRules.forEach(r=>{ if(!r.svcId) r.svcId=(r.cat==='tr'?'svc_tr_default':'svc_par_default'); });
+  state.services.forEach(s=>{
+    if(s.templateType!=='government'&&!Array.isArray(s.sessionTypes)){
+      s.sessionTypes=s.id==='svc_tr_default'?((state.settings&&state.settings.templates)||[]).slice():['Session'];
+    }
+    if(s.templateType!=='private'&&s.contract==null) s.contract='';
+  });
+  state.schema=7;
+}
+function refreshSettingsCards(){
+  const svc=activeSvc()||{}, gov=svc.templateType==='government';
+  const t=document.getElementById('rules-card-title'); if(t) t.textContent='Billing Scenarios: '+(svc.name||'');
+  const tt=document.getElementById('tpl-card-title'); if(tt) tt.textContent='Session Descriptions: '+(svc.name||'');
+  const pc=document.getElementById('par-config-card'); if(pc) pc.style.display=gov?'':'none';
+  const tc=document.getElementById('tpl-card'); if(tc) tc.style.display=gov?'none':'';
+  renderBillingRulesTable(); renderTemplates(); renderServicesList();
+}
+
 // ── Init ──────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
   loadState();
@@ -762,9 +857,7 @@ document.addEventListener('DOMContentLoaded', () => {
     state.sessions = { 'svc_tr_default':[], 'svc_par_default':[] };
     state.activeServiceId = 'svc_tr_default';
   }
-  if (!state.billingRules || !state.billingRules.length) {
-    state.billingRules = JSON.parse(JSON.stringify(DEFAULT_PAR_RULES));
-  }
+  migrateState();
   if (!state.activeServiceId) state.activeServiceId = state.services[0]?.id;
   applyGlobalSettings();
   rebuildServiceDropdowns();
@@ -773,9 +866,7 @@ document.addEventListener('DOMContentLoaded', () => {
   updateSummary();
   renderReports();
   renderInvoiceLog();
-  renderServicesList();
-  renderTemplates();
-  renderBillingRulesTable();
+  refreshSettingsCards();
   updateSyncStatus();
   updateTemplateBadge();
   document.getElementById('inv-date-input').value = todayStr();
@@ -822,7 +913,8 @@ function getRuleHours(ruleId){
   return r ? r.hours : 0;
 }
 function getRulesByCategory(cat){
-  return state.billingRules.filter(r=>r.cat===cat);
+  const owner=rulesSvcId(activeSvc());
+  return state.billingRules.filter(r=>r.cat===cat&&r.svcId===owner);
 }
 function parCatScenarios(cat){
   return getRulesByCategory(cat).map(r=>`<option value="${r.id}">${r.label} (${r.hours}h)</option>`).join('');
@@ -838,13 +930,7 @@ function catHours(cat){
 
 // ── Billing rules render ───────────────────────────────────
 function renderBillingRulesTable(){
-  const sections=[
-    {label:'PAR 1:1 Regular', cat:'11'},
-    {label:'PAR 1:1 MCIS', cat:'mcis'},
-    {label:'PAR Group', cat:'group'},
-    {label:'PAR Team Meeting', cat:'meeting'},
-    {label:'TR Sessions', cat:'tr'},
-  ];
+  const sections=ruleSectionsFor(activeSvc());
   let html='<thead><tr><th>Scenario</th><th style="text-align:center;width:52px">Hrs</th><th style="width:36px"></th></tr></thead><tbody>';
   sections.forEach(sec=>{
     html+=`<tr><td colspan="3" class="rules-section-head">${sec.label}</td></tr>`;
@@ -950,9 +1036,9 @@ function renderQuickAdd(){
     document.getElementById('qa-date').value=todayStr();
     onQAParTypeChange();
   } else {
-    const tpls=state.settings.templates||[];
-    const typeOpts=tpls.map(t=>`<option value="${t}">${t}</option>`).join('')+'<option value="custom">Custom…</option>';
-    const trOpts=TR_STATUSES.map(s=>`<option value="${s.ruleId}">${s.value}</option>`).join('');
+    const tpls=(activeSvc()||{}).sessionTypes||[];
+    const typeOpts=tpls.map(t=>`<option value="${govEsc(t)}">${govEsc(t)}</option>`).join('')+'<option value="custom">Custom…</option>';
+    const trOpts=svcStatuses().map(s=>`<option value="${s.ruleId}">${govEsc(s.value)}</option>`).join('');
     body.innerHTML=`
       <div class="field-row">
         <div class="field"><label>Date</label><input type="date" id="qa-date"></div>
@@ -1014,8 +1100,8 @@ function quickAdd(){
     const desc=typeVal==='custom'?v('qa-tr-custom').trim():typeVal;
     if(!desc){showToast('Enter a description.','error');return;}
     const statusRuleId=v('qa-tr-status');
-    const statusLabel=TR_STATUSES.find(s=>s.ruleId===statusRuleId)?.value||'Happened';
-    session={id:Date.now()+Math.random(),date,service:desc,cat:'tr',statusRuleId,status:statusLabel,rate,hrs,invoiced:false};
+    const statusLabel=svcStatuses().find(s=>s.ruleId===statusRuleId)?.value||'Happened';
+    session={id:Date.now()+Math.random(),date,service:desc,cat:svcCat(activeSvc())||'tr',statusRuleId,status:statusLabel,rate,hrs,invoiced:false};
   }
   state.sessions[sid].push(session);
   sortSessions(sid);
@@ -1025,7 +1111,7 @@ function quickAdd(){
 }
 
 function catChipClass(cat){return {group:'chip-group','11':'chip-11',mcis:'chip-mcis',meeting:'chip-meeting',tr:'chip-tr'}[cat]||'chip-tr';}
-function catLabel(cat){return {group:'PAR Group','11':'1:1 Regular','mcis':'1:1 MCIS','meeting':'PAR Team Meeting','tr':'TR Session'}[cat]||cat||'';}
+function catLabel(cat){return {group:'PAR Group','11':'1:1 Regular','mcis':'1:1 MCIS','meeting':'PAR Team Meeting','tr':'TR Session',custom:'Session'}[cat]||cat||'';}
 
 // Track which month groups are expanded
 const expandedMonths = new Set();
@@ -1078,10 +1164,10 @@ function renderSessions(){
     // Session cards for this month
     const sessionCards=group.map(s=>{
       const cat=s.cat||'tr';
-      const isGovSess=cat!=='tr';
+      const isGovSess=cat!=='tr'&&cat!=='custom';
       const statusOpts=isGovSess
         ?statusesForCat(cat).map(st=>`<option value="${st.ruleId}"${st.ruleId===s.statusRuleId?' selected':''}>${st.value}</option>`).join('')
-        :TR_STATUSES.map(st=>`<option value="${st.ruleId}"${st.ruleId===s.statusRuleId?' selected':''}>${st.value}</option>`).join('');
+        :svcStatuses().map(st=>`<option value="${st.ruleId}"${st.ruleId===s.statusRuleId?' selected':''}>${st.value}</option>`).join('');
       const invoicedChip=s.invoiced?`<span class="chip-invoiced">Invoiced #${s.invoiceNum||'?'}</span>`:'';
       return `
       <div class="session-card" style="margin:8px 12px;${s.invoiced?'opacity:0.7;':''}">
@@ -1175,7 +1261,7 @@ function onSessStatusChange(id,ruleId,cat){
   if(!s) return;
   s.statusRuleId=ruleId;
   s.hrs=hoursFromRuleId(ruleId);
-  const def=[...PAR_STATUSES,...TR_STATUSES].find(st=>st.ruleId===ruleId&&(st.cat===cat||!st.cat));
+  const def=((cat==='tr'||cat==='custom')?svcStatuses():PAR_STATUSES).find(st=>st.ruleId===ruleId&&(st.cat===cat||!st.cat));
   s.status=def?.value||'';
   saveState(); renderSessions(); updateSummary();
 }
@@ -1254,7 +1340,7 @@ function openBulkAdd(){
 }
 
 function rebuildTRBulkDropdown(){
-  const tpls=state.settings.templates||[];
+  const tpls=(activeSvc()||{}).sessionTypes||[];
   document.getElementById('bulk-service').innerHTML=tpls.map(t=>`<option value="${t}">${t}</option>`).join('');
 }
 
@@ -1389,10 +1475,11 @@ function confirmBulkAdd(){
     });
   } else {
     const svcDesc=v('bulk-service');
+    const st0=svcStatuses()[0];
     dates.forEach(date=>{
-      const defRule=parCatDefaultRule('tr');
       state.sessions[sid].push({id:Date.now()+Math.random(),date,service:svcDesc,
-        cat:'tr',scenarioId:defRule?.id||'',rate,hrs:defRule?defRule.hours:hrs});
+        cat:svcCat(activeSvc())||'tr',statusRuleId:st0?st0.ruleId:'',status:st0?st0.value:'Happened',
+        rate,hrs:st0?hoursFromRuleId(st0.ruleId):hrs,invoiced:false});
       added++;
     });
   }
@@ -1413,7 +1500,7 @@ function showTab(id,el){
 }
 function openModal(id){document.getElementById(id).classList.add('open');}
 function closeModal(id){document.getElementById(id).classList.remove('open');}
-document.querySelectorAll('.modal-overlay').forEach(o=>o.addEventListener('click',e=>{if(e.target===o)o.classList.remove('open');}));
+document.querySelectorAll('.modal-overlay').forEach(o=>o.addEventListener('click',e=>{if(e.target===o&&!o.dataset.sticky)o.classList.remove('open');}));
 
 function switchService(id){
   state.activeServiceId=id;
@@ -1425,25 +1512,25 @@ function switchService(id){
   updateSyncStatus();
   updateTemplateBadge();
   document.getElementById('inv-service-label').textContent=activeSvc()?.name||'';
+  refreshSettingsCards();
+  const sel=document.getElementById('active-service-select'); if(sel) sel.value=state.activeServiceId;
 }
 function updateTemplateBadge(){
   const badge=document.getElementById('template-badge');
-  const gov=isGov();
-  badge.textContent=gov?'Government':'Private';
+  const gov=isGov(), cus=(activeSvc()||{}).templateType==='custom';
+  badge.textContent=gov?'Government':(cus?'Your Template':'Private');
   badge.className='template-badge '+(gov?'government':'private');
-  document.getElementById('inv-terms-wrap').style.display=gov?'none':'block';
+  document.getElementById('inv-terms-wrap').style.display=(gov||cus)?'none':'block';
 }
 function rebuildServiceDropdowns(){
   const svcs=state.services;
   document.getElementById('active-service-select').innerHTML=svcs.map(s=>`<option value="${s.id}" ${s.id===state.activeServiceId?'selected':''}>${s.name}</option>`).join('');
   document.getElementById('inv-service-label').textContent=activeSvc()?.name||'';
   const repSel=document.getElementById('rep-service-filter');
-  repSel.innerHTML='<option value="all">All services</option>'+svcs.map(s=>`<option value="${s.id}">${s.name}</option>`).join('');
+  repSel.innerHTML='<option value="all">All workplaces</option>'+svcs.map(s=>`<option value="${s.id}">${s.name}</option>`).join('');
 }
 function autoInvoiceNum(){
-  const log=state.invoiceLog.filter(i=>i.serviceId===state.activeServiceId);
-  const last=log.length?Math.max(...log.map(i=>parseInt(i.num)||0)):0;
-  document.getElementById('inv-num-input').value=String(last+1).padStart(3,'0');
+  document.getElementById('inv-num-input').value=String(lastInvNum(state.activeServiceId)+1).padStart(3,'0');
 }
 
 // ── Preview ───────────────────────────────────────────────
@@ -1475,6 +1562,11 @@ function setPreviewMode(mode){
 function openPreview(targetYM){
   const allSessions = activeSessions();
   const svc = activeSvc()||{};
+  if(!tplReady(svc)){
+    showToast('Place the fields on your template first.','error',3500);
+    openPlacement(svc.id);
+    return;
+  }
 
   // Group uninvoiced sessions by month
   const groups = {};
@@ -1491,8 +1583,7 @@ function openPreview(targetYM){
   }
 
   // Build preview months array — assign sequential invoice numbers
-  const baseLog = state.invoiceLog.filter(i=>i.serviceId===state.activeServiceId);
-  let nextNum = baseLog.length ? Math.max(...baseLog.map(i=>parseInt(i.num)||0))+1 : 1;
+  let nextNum = lastInvNum(state.activeServiceId)+1;
   previewMonths = sortedYMs.map(ym=>({
     ym,
     sessions: groups[ym],
@@ -1531,8 +1622,7 @@ function renderPreviewPage(){
   if(previewMode==='combined'){
     // Combined: all uninvoiced sessions, last generated invoice number
     const allSessions = activeSessions().filter(s=>!s.invoiced);
-    const log = state.invoiceLog.filter(i=>i.serviceId===state.activeServiceId);
-    const lastNum = log.length ? Math.max(...log.map(i=>parseInt(i.num)||0)) : 0;
+    const lastNum = lastInvNum(state.activeServiceId);
     const invNum = lastNum ? String(lastNum+1).padStart(3,'0') : (v('inv-num-input')||'001');
     if(nav) nav.style.display='none';
     document.getElementById('preview-modal-title').textContent='Invoice Preview';
@@ -1540,8 +1630,7 @@ function renderPreviewPage(){
     document.getElementById('preview-month-counter').textContent=allSessions.length+' sessions · 1 invoice';
     document.getElementById('inv-num-input').value=invNum;
     const svc=activeSvc()||{};
-    if(svc.templateType==='government') buildGovPreview(svc,allSessions,invNum);
-    else buildPrivatePreview(svc,allSessions,invNum);
+    buildInvoiceHtml(svc,allSessions,invNum);
   } else {
     const item = previewMonths[previewIndex];
     if(!item) return;
@@ -1554,8 +1643,7 @@ function renderPreviewPage(){
       `${previewIndex+1} of ${previewMonths.length} month${previewMonths.length!==1?'s':''}`;
     if(nav) nav.style.display = previewMonths.length>1 ? 'flex' : 'none';
     document.getElementById('inv-num-input').value = item.invNum;
-    if(svc.templateType==='government') buildGovPreview(svc, item.sessions, item.invNum);
-    else buildPrivatePreview(svc, item.sessions, item.invNum);
+    buildInvoiceHtml(svc, item.sessions, item.invNum);
   }
 }
 
@@ -1583,8 +1671,7 @@ function buildPreviewHTML(){
   const svc=activeSvc()||{};
   const sessions=activeSessions().filter(s=>!s.invoiced);
   const invNum=v('inv-num-input')||'001';
-  if(svc.templateType==='government') buildGovPreview(svc,sessions,invNum);
-  else buildPrivatePreview(svc,sessions,invNum);
+  buildInvoiceHtml(svc,sessions,invNum);
 }
 function buildPrivatePreview(svc, sessions, invNum){
   sessions=sessions||activeSessions().filter(s=>!s.invoiced);
@@ -1782,8 +1869,7 @@ function fitGovPreview(){
   var el=document.getElementById('inv-preview-doc');if(!el)return;
   var pages=el.querySelectorAll('.gov-page'),fits=el.querySelectorAll('.gov-fit');if(!pages.length)return;
   var avail=el.clientWidth||Math.max(280,Math.min(window.innerWidth-48,612));
-  var s=Math.min(1,avail/612);
-  for(var i=0;i<pages.length;i++){pages[i].style.transformOrigin='0 0';pages[i].style.transform='scale('+s+')';fits[i].style.width=(612*s)+'px';fits[i].style.height=(792*s)+'px';}
+  for(var i=0;i<pages.length;i++){var pw=pages[i].offsetWidth||612,ph=pages[i].offsetHeight||792,s=Math.min(1,avail/pw);pages[i].style.transformOrigin='0 0';pages[i].style.transform='scale('+s+')';fits[i].style.width=(pw*s)+'px';fits[i].style.height=(ph*s)+'px';}
 }
 window.addEventListener('resize',function(){try{fitGovPreview();}catch(e){}});
 
@@ -1815,7 +1901,9 @@ async function generateInvoice(targetYM, invNum, explicitSessions){
     const _svc=activeSvc()||{};
     const canvas=await captureInvoiceCanvas(_svc.templateType==='government'?640:480);
     const{jsPDF}=window.jspdf;
-    const doc=new jsPDF({unit:'pt',format:'letter',orientation:'portrait'});
+    const doc=_svc.templateType==='custom'
+      ?new jsPDF({unit:'pt',format:[_svc.tpl.pw,_svc.tpl.ph],orientation:_svc.tpl.ph>=_svc.tpl.pw?'portrait':'landscape'})
+      :new jsPDF({unit:'pt',format:'letter',orientation:'portrait'});
     addCanvasToPdf(doc,canvas);
 
     const svc=activeSvc()||{};
@@ -1823,7 +1911,7 @@ async function generateInvoice(targetYM, invNum, explicitSessions){
     const period=calcPeriod(sessions);
     const total=sessions.reduce((a,s)=>a+(s.hrs||0)*(s.rate||0),0);
     const hours=sessions.reduce((a,s)=>a+(s.hrs||0),0);
-    const label=(svc.templateType==='government'?(svc.payee||'PAR'):(svc.client||'Client')).replace(/\s+/g,'-');
+    const label=(svc.templateType==='government'?(svc.payee||'PAR'):svc.templateType==='custom'?(svc.name||'Invoice'):(svc.client||'Client')).replace(/\s+/g,'-');
     doc.save(`Invoice-${invNum}_${label}_${period.label.replace(/[\s\/]/g,'-')}.pdf`);
 
     // Mark these sessions as invoiced
@@ -1833,10 +1921,10 @@ async function generateInvoice(targetYM, invNum, explicitSessions){
     });
 
     const logEntry={num:invNum,serviceId:state.activeServiceId,serviceName:svc.name||'',
-      client:svc.templateType==='government'?(svc.payee||''):(svc.client||''),
+      client:svc.templateType==='government'?(svc.payee||''):svc.templateType==='custom'?(svc.name||''):(svc.client||''),
       period:period.label,dateGenerated:new Date().toLocaleDateString('en-CA'),
       sessions:sessions.length,hours:hours.toFixed(1),total:total.toFixed(2),
-      templateType:svc.templateType,synced:false,timestamp:Date.now()};
+      templateType:svc.templateType,contract:svc.contract||'',synced:false,timestamp:Date.now()};
     state.invoiceLog.unshift(logEntry);
     saveState(); renderInvoiceLog(); renderReports(); renderSessions();
 
@@ -1924,64 +2012,485 @@ function renderInvoiceLog(){
     </div>`).join('');
 }
 
-// ── Services ──────────────────────────────────────────────
-function onTemplateChange(val){
-  document.getElementById('ns-private-fields').style.display=val==='government'?'none':'block';
-  document.getElementById('ns-gov-fields').style.display=val==='government'?'block':'none';
+// ── Workplaces ────────────────────────────────────────────
+// A workplace owns its invoice template, contract number, billing scenarios,
+// session descriptions, sessions and invoice numbering.
+const WP_SPECS={
+  government:[['contract','Contract #','text'],['hst','HST #','text'],['govEmail','Your Email','email'],['payee','Payee Name','text'],['payeeAddr1','Payee Address 1','text'],['payeeAddr2','Payee City / Postal','text'],['for1','For Line 1','text'],['for2','For Line 2','text'],['supervisor','Supervisor','text'],['supTitle','Supervisor Title','text']],
+  private:[['company','Company Name','text'],['client','Client Name','text'],['clientEmail','Client Email','email'],['emt','Your EMT Email','email'],['thankyou','Thank You Message','textarea'],['showPayment','Show payment instructions on invoice','check'],['paymentMsg','Payment Message','textarea']],
+  custom:[['contract','Contract #','text'],['billTo','Bill To (prints as typed here)','textarea']]
+};
+const WP_DEFAULT_TEXT={thankyou:'Thank you for your continued partnership and support.',paymentMsg:'Please remit payment via Interac e-Transfer. Include the invoice # as the reference.'};
+const WP_FILE_HINT='Upload your existing invoice as a PDF or a photo. You will place the fields on it in the next step.';
+let wpEditId=null, wpMode='upload', wpPending=null, wpLogo=undefined; // wpLogo: undefined = unchanged, null = none, string = new logo
+
+function wpToggleStyle(on){
+  return 'padding:12px 8px;border:2px solid '+(on?'var(--p-dark)':'var(--cream-b)')+';border-radius:10px;font-family:Inter,sans-serif;font-size:13px;font-weight:700;cursor:pointer;background:'+(on?'var(--p-dark)':'#fff')+';color:'+(on?'#fff':'var(--text-s)')+';-webkit-appearance:none;touch-action:manipulation';
 }
-function openAddService(){
-  ['ns-name','ns-company','ns-client','ns-client-email','ns-emt','ns-contract','ns-gov-email',
-   'ns-payee','ns-payee-addr1','ns-payee-addr2','ns-for1','ns-for2','ns-supervisor','ns-sup-title']
-    .forEach(id=>document.getElementById(id).value='');
-  document.getElementById('ns-hst').value='N/A';
-  document.getElementById('ns-thankyou').value='Thank you for your continued partnership and support.';
-  document.getElementById('ns-show-payment').checked=true;
-  document.getElementById('ns-payment-msg').value='Please remit payment via Interac e-Transfer. Include the invoice # as the reference.';
-  document.getElementById('ns-rate').value=40; document.getElementById('ns-hrs').value=1;
-  document.getElementById('ns-template').value='private'; onTemplateChange('private');
-  openModal('modal-add-service');
+function setWpMode(m){
+  wpMode=m;
+  document.getElementById('wp-mode-upload').style.cssText=wpToggleStyle(m==='upload');
+  document.getElementById('wp-mode-general').style.cssText=wpToggleStyle(m==='general');
+  document.getElementById('wp-upload-wrap').style.display=m==='upload'?'block':'none';
+  document.getElementById('wp-general-wrap').style.display=m==='general'?'block':'none';
+  document.getElementById('wp-logo-wrap').style.display=m==='general'?'block':'none';
+  wpRenderFields('custom',{});
 }
-function confirmAddService(){
-  const name=v('ns-name').trim();
-  if(!name){showToast('Enter a service name.','error');return;}
-  const tmpl=v('ns-template');
-  const base={id:uid(),name,templateType:tmpl,rate:parseFloat(v('ns-rate'))||40,hrs:parseFloat(v('ns-hrs'))||1};
-  const svc=tmpl==='government'
-    ? {...base,contract:v('ns-contract'),hst:v('ns-hst')||'N/A',govEmail:v('ns-gov-email'),
-       payee:v('ns-payee'),payeeAddr1:v('ns-payee-addr1'),payeeAddr2:v('ns-payee-addr2'),
-       for1:v('ns-for1'),for2:v('ns-for2'),supervisor:v('ns-supervisor'),supTitle:v('ns-sup-title')}
-    : {...base,company:v('ns-company')||name,client:v('ns-client'),clientEmail:v('ns-client-email'),
-       emt:v('ns-emt'),thankyou:v('ns-thankyou')||'Thank you for your continued partnership and support.',
-       showPayment:document.getElementById('ns-show-payment').checked,
-       paymentMsg:v('ns-payment-msg')||'Please remit payment via Interac e-Transfer. Include the invoice # as the reference.'};
+function wpRenderFields(type,vals){
+  const host=document.getElementById('wp-dynamic');
+  host.innerHTML=WP_SPECS[type].map(function(f){
+    const id='wpf-'+f[0], val=vals[f[0]];
+    if(f[2]==='check') return '<div class="field"><label style="display:flex;align-items:center;gap:7px;cursor:pointer;text-transform:none;letter-spacing:0;font-size:13px;font-weight:500;color:var(--text-d)"><input type="checkbox" id="'+id+'" '+(val===false?'':'checked')+' style="width:16px;height:16px;accent-color:var(--p-mid)">'+f[1]+'</label></div>';
+    if(f[2]==='textarea') return '<div class="field"><label>'+f[1]+'</label><textarea id="'+id+'" style="height:80px">'+govEsc(val==null?(WP_DEFAULT_TEXT[f[0]]||''):val)+'</textarea></div>';
+    const oninput=f[0]==='contract'?' oninput="wpContractInput()"':'';
+    return '<div class="field"><label>'+f[1]+'</label><input type="'+f[2]+'" id="'+id+'" value="'+govEsc(val==null?(f[0]==='hst'?'N/A':''):val)+'"'+oninput+'></div>';
+  }).join('');
+}
+function wpReadFields(type){
+  const out={};
+  WP_SPECS[type].forEach(function(f){
+    const el=document.getElementById('wpf-'+f[0]);if(!el)return;
+    out[f[0]]=f[2]==='check'?el.checked:el.value.trim();
+  });
+  return out;
+}
+function wpContractInput(){
+  const wrap=document.getElementById('wp-contract-restart');if(!wrap)return;
+  const svc=wpEditId?state.services.find(function(s){return s.id===wpEditId;}):null;
+  const oldC=svc?(svc.contract||''):'', newC=v('wpf-contract').trim();
+  const hasLog=!!svc&&state.invoiceLog.some(function(i){return i.serviceId===svc.id;});
+  wrap.style.display=(svc&&oldC&&newC&&oldC!==newC&&hasLog)?'block':'none';
+}
+function openWorkplaceModal(id){
+  wpEditId=id||null; wpPending=null; wpLogo=id?undefined:null;
+  const svc=id?state.services.find(function(s){return s.id===id;}):null;
+  document.getElementById('wp-file').value='';
+  document.getElementById('wp-file-status').textContent=WP_FILE_HINT;
+  document.getElementById('wp-title').textContent=svc?'Edit Workplace':'Add Workplace';
+  document.getElementById('wp-name').value=svc?svc.name:'';
+  document.getElementById('wp-rate').value=svc?svc.rate:40;
+  document.getElementById('wp-hrs').value=svc?svc.hrs:1;
+  document.getElementById('wp-mode-wrap').style.display=svc?'none':'block';
+  document.getElementById('wp-save-btn').textContent=svc?'Save Changes':'Add Workplace';
+  document.getElementById('wp-contract-restart').style.display='none';
+  document.getElementById('wp-new-contract').checked=true;
+  document.getElementById('wp-tpl-tools').style.display=(svc&&svc.templateType==='custom')?'block':'none';
+  document.getElementById('wp-logo').value='';
+  document.getElementById('wp-logo-wrap').style.display=(svc&&svc.tplKind==='general')?'block':'none';
+  document.getElementById('wp-logo-status').textContent=svc?(svc.logo?'Your logo is on the invoice. Choose a file to replace it.':'No logo yet. A PNG with a transparent background looks best.'):'A PNG with a transparent background looks best. You can skip this and add one later.';
+  if(svc) wpRenderFields(svc.templateType,svc); else setWpMode('upload');
+  openModal('modal-workplace');
+}
+async function onWpFile(inp){
+  const f=inp.files&&inp.files[0];if(!f)return;
+  const st=document.getElementById('wp-file-status');
+  st.textContent='Reading your template...';
+  try{
+    wpPending=await ingestTemplateFile(f);
+    st.textContent='Template ready: '+f.name;
+  }catch(e){
+    wpPending=null;st.textContent='Could not read that file. Try a PDF, PNG or JPG.';console.error(e);
+  }
+}
+async function onWpReplaceFile(inp){
+  const f=inp.files&&inp.files[0];if(!f)return;
+  const svc=state.services.find(function(s){return s.id===wpEditId;});if(!svc||!svc.tpl)return;
+  try{
+    const t=await ingestTemplateFile(f);
+    svc.tpl.img=t.img;svc.tpl.pw=t.pw;svc.tpl.ph=t.ph;
+    if(!saveState())return;
+    closeModal('modal-workplace');
+    showToast('Template replaced. Check your field positions.','success',3500);
+    openPlacement(svc.id);
+  }catch(e){showToast('Could not read that file.','error');console.error(e);}
+  inp.value='';
+}
+function loadImg(src){return new Promise(function(res,rej){const i=new Image();i.onload=function(){res(i);};i.onerror=rej;i.src=src;});}
+async function onWpLogo(inp){
+  const f=inp.files&&inp.files[0];if(!f)return;
+  const st=document.getElementById('wp-logo-status');
+  try{
+    const url=await new Promise(function(res,rej){const r=new FileReader();r.onload=function(){res(r.result);};r.onerror=rej;r.readAsDataURL(f);});
+    const img=await loadImg(url);
+    const iw=img.naturalWidth||400,ih=img.naturalHeight||200,sc=Math.min(1,600/iw,300/ih);
+    const cv=document.createElement('canvas');cv.width=Math.max(1,Math.round(iw*sc));cv.height=Math.max(1,Math.round(ih*sc));
+    cv.getContext('2d').drawImage(img,0,0,cv.width,cv.height);
+    wpLogo=cv.toDataURL('image/png');
+    st.textContent='Logo ready: '+f.name;
+  }catch(e){wpLogo=undefined;st.textContent='Could not read that image. Try a PNG or JPG.';console.error(e);}
+}
+function removeWpLogo(){
+  wpLogo=null;document.getElementById('wp-logo').value='';
+  document.getElementById('wp-logo-status').textContent=wpEditId?'Logo will be removed when you save.':'No logo.';
+}
+function logoPrompt(name){
+  return 'Please create a logo for my business, "'+name+'".\n\nBefore you start, ask me two quick questions: what I do, and the look I want (for example modern, friendly, calm or bold).\n\nRequirements:\n- A simple, clean design that stays readable when printed small on a white invoice\n- A wide or square shape, with some empty space around it\n- A transparent background if possible\n- Deliver it as a downloadable PNG file, at least 1000 pixels wide\n- If you can only make an SVG, give me the SVG and tell me the easiest way to save it as a PNG';
+}
+function invoicePrompt(){
+  return 'Please create a blank, professional invoice template that I can upload into my invoicing app.\n\nRequirements:\n- US Letter size, portrait, delivered as a PDF (or a PNG at least 1600 pixels tall)\n- Clean and simple, with a white background and one accent colour\n- Leave every value blank. Print only labels and lines, laid out clearly like this:\n  - Title: INVOICE\n  - Top right: Invoice number, Invoice date, Contract number and Billing period, each with a blank line\n  - Top left: a From area for my name and address\n  - Below that: a boxed Bill to area\n  - A table with the columns Date, Description, Hours, Rate and Amount, with about 16 empty rows\n  - Bottom right: Total due, with a blank line\n  - Bottom left: a Signature line\n- No sample text, no made-up names and no logo';
+}
+function openPrompt(kind){
+  const logo=kind==='logo', name=v('wp-name').trim()||'my business';
+  document.getElementById('prompt-title').textContent=logo?'Prompt: Make a Logo':'Prompt: Make an Invoice';
+  document.getElementById('prompt-help').textContent=logo
+    ?'Copy this, paste it into Claude or ChatGPT, then save the picture it makes and choose that file under Logo.'
+    :'Copy this, paste it into Claude or ChatGPT, then download the file it makes and upload it here. Check it looks right. You will place your fields on it next.';
+  document.getElementById('prompt-text').value=logo?logoPrompt(name):invoicePrompt();
+  openModal('modal-prompt');
+}
+function copyPrompt(){
+  const ta=document.getElementById('prompt-text');
+  function done(){showToast('Prompt copied. Paste it into Claude or ChatGPT.','success',3500);}
+  function fallback(){ta.focus();ta.select();ta.setSelectionRange(0,ta.value.length);try{document.execCommand('copy');done();}catch(e){showToast('Press and hold the text to copy it.','error',3500);}}
+  if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(ta.value).then(done,fallback);else fallback();
+}
+function seedCustomRules(svc){
+  const h=svc.hrs||1;
+  [['happened','Happened',h],['noshow','No Show',h],['cancel24','Cancelled, less than 24 hours notice',h],['cancel24p','Cancelled, more than 24 hours notice',0]].forEach(function(r){
+    state.billingRules.push({id:'r_'+svc.id+'_'+r[0],svcId:svc.id,cat:'custom',label:r[1],hours:r[2]});
+  });
+}
+async function saveWorkplace(){
+  const name=v('wp-name').trim();
+  if(!name){showToast('Enter a workplace name.','error');return;}
+  const rate=parseFloat(v('wp-rate'))||40, hrs=parseFloat(v('wp-hrs'))||1;
+
+  if(wpEditId){
+    const svc=state.services.find(function(s){return s.id===wpEditId;});if(!svc)return;
+    const spec=wpReadFields(svc.templateType);
+    const oldC=svc.contract||'', hasContract=spec.contract!=null, newC=hasContract?spec.contract:oldC;
+    Object.assign(svc,spec,{name:name,rate:rate,hrs:hrs});
+    if(svc.tplKind==='general'&&wpLogo!==undefined){
+      try{svc.logo=wpLogo||'';svc.tpl.img=(await makeGeneralTemplate(svc.logo)).img;}
+      catch(e){showToast('Could not use that logo. Try a PNG or JPG.','error',3500);console.error(e);return;}
+    }
+    if(hasContract&&oldC!==newC){
+      const restart=document.getElementById('wp-contract-restart').style.display!=='none'&&document.getElementById('wp-new-contract').checked;
+      // Not a new contract (first time set, or a typo fix): existing invoices keep counting under the new value.
+      if(!restart) state.invoiceLog.forEach(function(i){if(i.serviceId===svc.id&&(i.contract||'')===oldC) i.contract=newC;});
+    }
+    if(!saveState())return;
+    rebuildServiceDropdowns();renderServicesList();refreshSettingsCards();renderQuickAdd();autoInvoiceNum();updateSyncStatus();
+    closeModal('modal-workplace');
+    showToast(name+' updated ✓','success');
+    return;
+  }
+
+  const id=uid();let svc;
+  if(wpMode==='upload'){
+    if(!wpPending){showToast('Choose your invoice template file first.','error');return;}
+    const spec=wpReadFields('custom');
+    svc={id:id,name:name,templateType:'custom',rate:rate,hrs:hrs,contract:spec.contract||'',billTo:spec.billTo||'',sessionTypes:['Session'],
+      tpl:{img:wpPending.img,pw:wpPending.pw,ph:wpPending.ph,fields:{},cols:[16,44,10,14,16],rowH:18,fs:10}};
+  }else{
+    const spec=wpReadFields('custom');
+    svc={id:id,name:name,templateType:'custom',tplKind:'general',logo:wpLogo||'',rate:rate,hrs:hrs,contract:spec.contract||'',billTo:spec.billTo||'',sessionTypes:['Session']};
+    try{svc.tpl=await makeGeneralTemplate(svc.logo);}
+    catch(e){showToast('Could not use that logo. Try a PNG or JPG.','error',3500);console.error(e);return;}
+  }
   state.services.push(svc);
-  state.sessions[svc.id]=[];
-  saveState(); rebuildServiceDropdowns(); renderServicesList();
-  closeModal('modal-add-service');
-  showToast(`${name} added ✓`,'success');
+  state.sessions[id]=[];
+  seedCustomRules(svc);
+  if(!saveState()){
+    state.services.pop();delete state.sessions[id];state.billingRules=state.billingRules.filter(function(r){return r.svcId!==id;});
+    return;
+  }
+  state.activeServiceId=id;
+  rebuildServiceDropdowns();renderServicesList();
+  switchService(id);
+  closeModal('modal-workplace');
+  if(svc.templateType==='custom'&&svc.tplKind!=='general'){
+    showToast(name+' added. Now place your fields.','success',3500);
+    openPlacement(id);
+  }else{
+    showToast(name+' added ✓','success');
+  }
 }
 function renderServicesList(){
   const el=document.getElementById('services-list');
-  el.innerHTML=state.services.map(s=>`
-    <div class="svc-item">
-      <div class="svc-info">
-        <div class="svc-name">${s.name}</div>
-        <div class="svc-meta">${s.templateType==='government'?(s.payee||''):(s.company||'')}</div>
-        <div class="svc-type-badge ${s.templateType}">${s.templateType==='government'?'Government':'Private'}</div>
-      </div>
-      ${state.services.length>1?`<button class="svc-remove" onclick="removeService('${s.id}')">×</button>`:''}
-    </div>`).join('');
+  el.innerHTML=state.services.map(function(s){
+    const gov=s.templateType==='government', cus=s.templateType==='custom';
+    const kind=gov?'Government':(cus?(s.tplKind==='general'?'General Template':'Your Template'):'Simple Layout');
+    const meta=gov?(s.payee||''):(cus?'':(s.company||''));
+    const needsC=(gov||cus)&&!(s.contract||'').trim();
+    const contractLine=(gov||cus)?(needsC?'<div class="svc-meta" style="color:var(--danger);font-weight:600">Contract number not set</div>':'<div class="svc-meta">Contract # '+govEsc(s.contract)+'</div>'):'';
+    return '<div class="svc-item">'
+      +'<div class="svc-info" onclick="openWorkplaceModal(\''+s.id+'\')" style="cursor:pointer">'
+      +'<div class="svc-name">'+govEsc(s.name)+(s.id===state.activeServiceId?' <span style="font-size:10px;font-weight:600;color:var(--p-mid)">(selected)</span>':'')+'</div>'
+      +(meta?'<div class="svc-meta">'+govEsc(meta)+'</div>':'')+contractLine
+      +'<div class="svc-type-badge '+(gov?'government':(cus?'custom':'private'))+'">'+kind+'</div></div>'
+      +'<button class="btn btn-secondary btn-sm" onclick="openWorkplaceModal(\''+s.id+'\')" style="padding:6px 12px;font-size:12px;width:auto">Edit</button>'
+      +(state.services.length>1?'<button class="svc-remove" onclick="removeService(\''+s.id+'\')">×</button>':'')
+      +'</div>';
+  }).join('');
 }
 function removeService(id){
-  appConfirm('Remove this service and all its data?','Remove','',function(ok){
+  appConfirm('Remove this workplace and all its sessions, scenarios and invoices?','Remove','',function(ok){
     if(!ok)return;
-    state.services=state.services.filter(s=>s.id!==id);
+    state.services=state.services.filter(function(s){return s.id!==id;});
     delete state.sessions[id];
-    state.invoiceLog=state.invoiceLog.filter(i=>i.serviceId!==id);
-    if(state.activeServiceId===id) state.activeServiceId=state.services[0]?.id||null;
-    saveState(); rebuildServiceDropdowns(); renderServicesList(); renderSessions(); updateSummary(); renderReports(); renderInvoiceLog();
-    showToast('Service removed.');
+    state.invoiceLog=state.invoiceLog.filter(function(i){return i.serviceId!==id;});
+    state.billingRules=state.billingRules.filter(function(r){return r.svcId!==id;});
+    if(state.activeServiceId===id) state.activeServiceId=state.services[0]?state.services[0].id:null;
+    saveState();rebuildServiceDropdowns();renderServicesList();switchService(state.activeServiceId);renderReports();renderInvoiceLog();
+    showToast('Workplace removed.');
   });
+}
+
+// ── Template upload ───────────────────────────────────────
+const PDFJS_URL='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+const PDFJS_WORKER='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+function loadScriptOnce(src){
+  return new Promise(function(res,rej){
+    const ex=document.querySelector('script[data-lazy="'+src+'"]');
+    if(ex){if(ex.dataset.done)return res();ex.addEventListener('load',function(){res();});ex.addEventListener('error',function(){rej(new Error('script'));});return;}
+    const s=document.createElement('script');s.src=src;s.dataset.lazy=src;
+    s.onload=function(){s.dataset.done='1';res();};
+    s.onerror=function(){s.remove();rej(new Error('script'));};
+    document.head.appendChild(s);
+  });
+}
+async function ingestTemplateFile(file){
+  let cv,pw,ph;
+  if(file.type==='application/pdf'||/\.pdf$/i.test(file.name)){
+    await loadScriptOnce(PDFJS_URL);
+    window.pdfjsLib.GlobalWorkerOptions.workerSrc=PDFJS_WORKER;
+    const pdf=await window.pdfjsLib.getDocument({data:await file.arrayBuffer()}).promise;
+    const page=await pdf.getPage(1);
+    const v1=page.getViewport({scale:1});
+    const vp=page.getViewport({scale:1700/Math.max(v1.width,v1.height)});
+    cv=document.createElement('canvas');cv.width=Math.round(vp.width);cv.height=Math.round(vp.height);
+    const cx=cv.getContext('2d');cx.fillStyle='#fff';cx.fillRect(0,0,cv.width,cv.height);
+    await page.render({canvasContext:cx,viewport:vp}).promise;
+    pw=Math.round(v1.width*100)/100;ph=Math.round(v1.height*100)/100;
+  }else{
+    const url=await new Promise(function(res,rej){const r=new FileReader();r.onload=function(){res(r.result);};r.onerror=rej;r.readAsDataURL(file);});
+    const img=await new Promise(function(res,rej){const i=new Image();i.onload=function(){res(i);};i.onerror=rej;i.src=url;});
+    const sc=Math.min(1,1700/Math.max(img.width,img.height));
+    cv=document.createElement('canvas');cv.width=Math.round(img.width*sc);cv.height=Math.round(img.height*sc);
+    const cx=cv.getContext('2d');cx.fillStyle='#fff';cx.fillRect(0,0,cv.width,cv.height);cx.drawImage(img,0,0,cv.width,cv.height);
+    pw=cv.height>=cv.width?612:792;ph=Math.round(pw*cv.height/cv.width*100)/100;
+  }
+  let q=0.85,out=cv.toDataURL('image/jpeg',q);
+  while(out.length>1400000&&q>0.5){q-=0.1;out=cv.toDataURL('image/jpeg',q);}
+  return {img:out,pw:pw,ph:ph};
+}
+
+// ── General template (for anyone without an invoice of their own) ──
+// Drawn here as a Letter page, with every field already placed.
+async function makeGeneralTemplate(logo){
+  const S=1275/612,cv=document.createElement('canvas');cv.width=1275;cv.height=1650;
+  const c=cv.getContext('2d');c.scale(S,S);
+  const ACC='#2D1B69',INK='#1a1a1a',MUTE='#666',LINE='#9a9a9a',FAINT='#e6e6ea',F='Arial, Helvetica, sans-serif';
+  c.fillStyle='#fff';c.fillRect(0,0,612,792);
+  function txt(s,x,y,size,color,bold,align){c.font=(bold?'bold ':'')+size+'px '+F;c.fillStyle=color;c.textAlign=align||'left';c.textBaseline='alphabetic';c.fillText(s,x,y);}
+  function hl(x1,x2,y,w,col){c.strokeStyle=col||LINE;c.lineWidth=w||0.75;c.beginPath();c.moveTo(x1,y);c.lineTo(x2,y);c.stroke();}
+  txt('INVOICE',48,72,30,ACC,true);
+  c.fillStyle=ACC;c.fillRect(48,82,516,3);
+  [['Invoice number',114],['Invoice date',136],['Contract / PO number',158],['Billing period',180]].forEach(function(r){txt(r[0],456,r[1]-4,9,MUTE,true,'right');hl(462,564,r[1]);});
+  txt('From',48,104,9,MUTE,true);
+  txt('Bill to',48,206,9,MUTE,true);
+  c.strokeStyle=LINE;c.lineWidth=0.75;c.strokeRect(48,212,270,64);
+  c.fillStyle=ACC;c.fillRect(48,300,516,22);
+  txt('Date',50,314.5,9,'#fff',true);txt('Description',140,314.5,9,'#fff',true);
+  txt('Hours',392,314.5,9,'#fff',true,'center');txt('Rate',488,314.5,9,'#fff',true,'right');txt('Amount',562,314.5,9,'#fff',true,'right');
+  for(let k=1;k<16;k++)hl(48,564,322+18*k,0.5,FAINT);
+  c.strokeStyle=LINE;c.lineWidth=0.75;c.strokeRect(48,322,516,288);
+  txt('TOTAL DUE',462,640,12,INK,true,'right');hl(470,564,644,1.5,INK);
+  hl(48,288,702,0.9,INK);txt('Signature',48,714,9,MUTE,false);
+  txt('Thank you for your business.',306,760,9,MUTE,false,'center');
+  if(logo){
+    const im=await loadImg(logo),bx=364,by=20,bw=200,bh=56,r=Math.min(bw/im.width,bh/im.height),w=im.width*r,h=im.height*r;
+    c.drawImage(im,bx+bw-w,by+(bh-h)/2,w,h);
+  }
+  const px=function(x,y,w,h){return {x:x/612,y:y/792,w:w/612,h:h/792};};
+  return {img:cv.toDataURL('image/jpeg',0.9),pw:612,ph:792,fs:10,rowH:18,cols:[90,226,56,70,74],align:['left','left','center','right','right'],
+    fields:{invNum:px(462,100,102,14),invDate:px(462,122,102,14),contract:px(462,144,102,14),period:px(462,166,102,14),
+      name:px(48,110,270,14),from:px(48,126,270,44),billTo:px(54,216,258,56),items:px(48,322,516,288),total:px(470,626,94,16),sig:px(48,666,240,34)}};
+}
+
+// ── Template rendering (shared by the placement editor, preview and PDF) ──
+const TPL_FIELDS=[
+  {k:'invNum',  label:'Invoice number',          w:.16,h:.026},
+  {k:'invDate', label:'Invoice date',            w:.22,h:.026},
+  {k:'contract',label:'Contract number',         w:.26,h:.026},
+  {k:'name',    label:'Your name',               w:.30,h:.026},
+  {k:'from',    label:'Your address and phone',  w:.34,h:.075},
+  {k:'billTo',  label:'Bill to',                 w:.34,h:.075},
+  {k:'period',  label:'Billing period',          w:.30,h:.026},
+  {k:'total',   label:'Total due',               w:.20,h:.026},
+  {k:'sig',     label:'Signature',               w:.30,h:.05},
+  {k:'items',   label:'Line items',              w:.86,h:.36}
+];
+function fmtLongDate(str){if(!str)return'';const d=new Date(str+'T12:00:00');return d.toLocaleDateString('en-CA',{year:'numeric',month:'long',day:'numeric'});}
+function tplRows(sessions){
+  return sessions.map(function(ss){return {
+    date:fmtDate(ss.date).replace(/\./g,''),
+    desc:(ss.service||'')+(ss.status&&ss.status!=='Happened'?' - '+ss.status:''),
+    hrs:String(ss.hrs||0),rate:'$'+parseFloat(ss.rate||0).toFixed(2),amt:'$'+((ss.hrs||0)*(ss.rate||0)).toFixed(2)};});
+}
+function tplVals(svc,sessions,invNum,invDate){
+  const p=state.settings,total=sessions.reduce(function(a,s){return a+(s.hrs||0)*(s.rate||0);},0);
+  return {invNum:invNum,invDate:fmtLongDate(invDate),contract:svc.contract||'',name:p.name||'',
+    from:[p.addr,p.city,p.phone].filter(Boolean).join('\n'),billTo:svc.billTo||'',period:calcPeriod(sessions).label,total:'$'+total.toFixed(2)};
+}
+function tplCap(t){const f=(t.fields||{}).items;if(!f)return 9999;return Math.max(1,Math.floor(f.h*t.ph/(t.rowH||18)));}
+function tplReady(svc){return svc.templateType!=='custom'||!!(svc.tpl&&svc.tpl.fields&&svc.tpl.fields.items);}
+function tplPageHtml(o){
+  const t=o.tpl,PW=t.pw,PH=t.ph,fs=t.fs||10,rowH=t.rowH||18,fl=t.fields||{},V=o.vals||{};
+  const F="font-family:Arial,Helvetica,'Liberation Sans',sans-serif;";
+  let h='<div class="gov-page" style="position:relative;width:'+PW+'px;height:'+PH+'px;background:#fff;color:#000;overflow:hidden;'+F+'"><img src="'+t.img+'" alt="" style="position:absolute;left:0;top:0;width:'+PW+'px;height:'+PH+'px">';
+  function one(txt,x,y,w,hh,opt){
+    opt=opt||{};txt=String(txt==null?'':txt);if(!txt)return'';
+    const size=govFit(txt,w,opt.size||fs,opt.bold),lh=Math.round(size*1.2*100)/100,top=y+(hh-lh)/2;
+    return '<div style="position:absolute;left:'+x+'px;top:'+top+'px;width:'+w+'px;height:'+lh+'px;line-height:'+lh+'px;font-size:'+size+'px;white-space:nowrap;overflow:hidden;text-align:'+(opt.align||'left')+';'+(opt.bold?'font-weight:700;':'')+(opt.font?'font-family:'+opt.font+';':'')+'">'+govEsc(txt)+'</div>';
+  }
+  ['invNum','invDate','contract','name','period'].forEach(function(k){const f=fl[k];if(f&&V[k])h+=one(V[k],f.x*PW,f.y*PH,f.w*PW,f.h*PH);});
+  ['from','billTo'].forEach(function(k){
+    const f=fl[k];if(!f||!V[k])return;const step=fs*1.25;
+    String(V[k]).split('\n').forEach(function(ln,i){h+=one(ln,f.x*PW,f.y*PH+i*step,f.w*PW,step);});
+  });
+  if(o.last&&fl.total&&V.total)h+=one(V.total,fl.total.x*PW,fl.total.y*PH,fl.total.w*PW,fl.total.h*PH,{bold:1,align:'right'});
+  if(o.last&&fl.sig){
+    const f=fl.sig,x=f.x*PW,y=f.y*PH,w=f.w*PW,hh=f.h*PH;
+    if(o.sig)h+='<div style="position:absolute;left:'+x+'px;top:'+y+'px;width:'+w+'px;height:'+hh+'px;display:flex;align-items:flex-end;justify-content:center"><img src="'+o.sig+'" alt="" style="max-height:'+hh+'px;max-width:'+w+'px;display:block"></div>';
+    else if(o.name)h+=one(o.name,x,y,w,hh,{align:'center',size:Math.min(16,hh*0.6),font:"'Brush Script MT','Segoe Script','Snell Roundhand',cursive"});
+  }
+  if(fl.items){
+    const f=fl.items,cols=(t.cols&&t.cols.length===5)?t.cols:[16,44,10,14,16],sum=cols.reduce(function(a,b){return a+b;},0)||100;
+    const W=f.w*PW,xs=[],ws=[],al=(t.align&&t.align.length===5)?t.align:['left','left','center','right','right'];let cx=f.x*PW;
+    cols.forEach(function(c){const cw=W*c/sum;xs.push(cx);ws.push(cw);cx+=cw;});
+    (o.rows||[]).forEach(function(r,i){
+      const y=f.y*PH+i*rowH;
+      [r.date,r.desc,r.hrs,r.rate,r.amt].forEach(function(txt,c){h+=one(txt,xs[c]+2,y,ws[c]-4,rowH,{align:al[c]});});
+    });
+  }
+  return h+'</div>';
+}
+function tplPagesHtml(svc,sessions,invNum,invDate){
+  const t=svc.tpl,rows=tplRows(sessions),vals=tplVals(svc,sessions,invNum,invDate),cap=tplCap(t),np=Math.max(1,Math.ceil(rows.length/cap));
+  let out='';
+  for(let pg=0;pg<np;pg++){
+    out+='<div class="gov-fit" style="margin:0 auto 10px;overflow:hidden">'+tplPageHtml({tpl:t,vals:vals,rows:rows.slice(pg*cap,pg*cap+cap),sig:state.settings.signature||'',name:state.settings.name||'',last:pg===np-1})+'</div>';
+  }
+  return out;
+}
+function buildCustomPreview(svc,sessions,invNum){
+  sessions=sessions||activeSessions().filter(function(s){return !s.invoiced;});
+  invNum=invNum||v('inv-num-input')||'001';
+  document.getElementById('inv-preview-doc').innerHTML=tplPagesHtml(svc,sessions,invNum,window._invDateOverride||v('inv-date-input'));
+  fitGovPreview();
+}
+function buildInvoiceHtml(svc,sessions,invNum){
+  if(svc.templateType==='government') buildGovPreview(svc,sessions,invNum);
+  else if(svc.templateType==='custom') buildCustomPreview(svc,sessions,invNum);
+  else buildPrivatePreview(svc,sessions,invNum);
+}
+
+// ── Field placement editor ────────────────────────────────
+let PL=null, plDrag=null, plRaf=0;
+function plClamp(x,a,b){return Math.max(a,Math.min(b,x));}
+function plSample(svc){
+  const p=state.settings,rate=svc.rate||40,hrs=svc.hrs||1,amt='$'+(rate*hrs).toFixed(2);
+  const rows=[0,1,2].map(function(i){return {date:'Nov '+(4+i*7)+', 2026',desc:'Session',hrs:String(hrs),rate:'$'+rate.toFixed(2),amt:amt};});
+  return {rows:rows,vals:{invNum:'001',invDate:fmtLongDate(todayStr()),contract:svc.contract||'C-1234',name:p.name||'Your Name',
+    from:[p.addr||'123 Your Street',p.city||'City, Province',p.phone||'555-555-5555'].join('\n'),billTo:svc.billTo||'Bill To Name\nStreet Address',period:'Nov 2026',total:'$'+(rate*hrs*3).toFixed(2)}};
+}
+function openPlacement(svcId){
+  const svc=state.services.find(function(s){return s.id===svcId;});
+  if(!svc||!svc.tpl)return;
+  PL={svc:svc,tpl:JSON.parse(JSON.stringify(svc.tpl)),sel:null,zoom:1};
+  if(!PL.tpl.fields)PL.tpl.fields={};
+  document.getElementById('pl-title-sub').textContent=svc.name;
+  openModal('modal-placement');
+  requestAnimationFrame(function(){renderPlacement();});
+}
+function closePlacement(){closeModal('modal-placement');PL=null;}
+function cancelPlacement(){
+  if(PL&&JSON.stringify(PL.tpl)!==JSON.stringify(PL.svc.tpl)){
+    appConfirm('Discard your placement changes?','Discard','',function(ok){if(ok)closePlacement();});
+  }else closePlacement();
+}
+function plSetZoom(z){if(!PL)return;PL.zoom=z;renderPlacement();}
+function plToggleField(k){
+  if(!PL)return;const fl=PL.tpl.fields;
+  if(fl[k]){PL.sel=k;renderPlacement();return;}
+  const d=TPL_FIELDS.find(function(f){return f.k===k;}),n=Object.keys(fl).length;
+  fl[k]={x:plClamp(0.5-d.w/2,0,1-d.w),y:plClamp(0.1+n*0.045,0,1-d.h),w:d.w,h:d.h};
+  PL.sel=k;renderPlacement();
+}
+function plRemove(k){if(!PL)return;delete PL.tpl.fields[k];if(PL.sel===k)PL.sel=null;renderPlacement();}
+function plRenderPage(){
+  const page=document.getElementById('pl-page');if(!page||!PL)return;
+  const t=PL.tpl,stage=document.getElementById('pl-stage'),sc=stage.clientWidth/t.pw,s=plSample(PL.svc);
+  page.style.cssText='position:absolute;left:0;top:0;width:'+t.pw+'px;height:'+t.ph+'px;transform:scale('+sc+');transform-origin:0 0;pointer-events:none';
+  page.innerHTML=tplPageHtml({tpl:t,vals:s.vals,rows:s.rows,sig:state.settings.signature||'',name:state.settings.name||'Your Name',last:true});
+}
+function renderPlacement(){
+  if(!PL)return;
+  const t=PL.tpl,host=document.getElementById('pl-host'),stage=document.getElementById('pl-stage');
+  const W=Math.max(240,host.clientWidth-16)*PL.zoom;
+  stage.style.width=W+'px';stage.style.height=(W*t.ph/t.pw)+'px';
+  document.getElementById('pl-chips').innerHTML=TPL_FIELDS.map(function(d){
+    const on=!!t.fields[d.k];
+    return '<button type="button" onclick="plToggleField(\''+d.k+'\')" style="padding:6px 10px;border-radius:999px;font-family:Inter,sans-serif;font-size:11px;font-weight:600;cursor:pointer;-webkit-appearance:none;touch-action:manipulation;border:1.5px solid '+(on?'var(--p-dark)':'var(--cream-b)')+';background:'+(on?'var(--p-dark)':'#fff')+';color:'+(on?'#fff':'var(--text-m)')+'">'+(on?'✓ ':'＋ ')+d.label+'</button>';
+  }).join('');
+  document.getElementById('pl-zoom-fit').style.cssText=wpToggleStyle(PL.zoom===1)+';padding:7px 14px;font-size:12px';
+  document.getElementById('pl-zoom-big').style.cssText=wpToggleStyle(PL.zoom===2)+';padding:7px 14px;font-size:12px';
+  let boxes='';
+  Object.keys(t.fields).forEach(function(k){
+    const f=t.fields[k],d=TPL_FIELDS.find(function(x){return x.k===k;}),sel=PL.sel===k;
+    boxes+='<div data-k="'+k+'" class="'+(sel?'sel':'')+'" onpointerdown="plDown(event,\''+k+'\',\'move\')" style="position:absolute;left:'+(f.x*100)+'%;top:'+(f.y*100)+'%;width:'+(f.w*100)+'%;height:'+(f.h*100)+'%;box-sizing:border-box;border:2px '+(sel?'solid #2D1B69':'dashed #7C5CBF')+';background:rgba(124,92,191,'+(sel?'.18':'.08')+');touch-action:none;cursor:move;z-index:'+(sel?3:2)+'">'
+      +'<span class="pl-aux" style="position:absolute;left:-2px;bottom:100%;font:600 9px Inter,sans-serif;background:#5B3E96;color:#fff;padding:1px 5px;border-radius:3px 3px 0 0;white-space:nowrap;pointer-events:none">'+d.label+'</span>'
+      +'<span class="pl-aux" onpointerdown="event.stopPropagation()" onclick="plRemove(\''+k+'\')" style="position:absolute;right:-2px;bottom:100%;width:20px;height:16px;font:700 12px/16px Inter,sans-serif;text-align:center;background:#C0392B;color:#fff;border-radius:3px 3px 0 0;cursor:pointer">×</span>'
+      +'<span class="pl-aux" onpointerdown="plDown(event,\''+k+'\',\'resize\')" style="position:absolute;right:-6px;bottom:-6px;width:18px;height:18px;border-radius:50%;background:#5B3E96;border:2px solid #fff;touch-action:none;cursor:nwse-resize"></span></div>';
+  });
+  stage.innerHTML='<div id="pl-page"></div><div id="pl-boxes" style="position:absolute;left:0;top:0;width:100%;height:100%">'+boxes+'</div>';
+  plRenderPage();
+  document.getElementById('pl-rowh').value=t.rowH||18;
+  document.getElementById('pl-fs').value=t.fs||10;
+  (t.cols||[16,44,10,14,16]).forEach(function(c,i){document.getElementById('pl-c'+i).value=c;});
+  (t.align&&t.align.length===5?t.align:['left','left','center','right','right']).forEach(function(a,i){document.getElementById('pl-a'+i).value=a;});
+}
+function plDown(e,k,mode){
+  if(!PL)return;e.preventDefault();e.stopPropagation();
+  const stage=document.getElementById('pl-stage'),r=stage.getBoundingClientRect();
+  PL.sel=k;
+  plDrag={k:k,mode:mode,sx:e.clientX,sy:e.clientY,f0:Object.assign({},PL.tpl.fields[k]),w:r.width,h:r.height,id:e.pointerId};
+  try{e.currentTarget.setPointerCapture(e.pointerId);}catch(x){}
+  document.querySelectorAll('#pl-boxes [data-k]').forEach(function(b){
+    const on=b.dataset.k===k;b.classList.toggle('sel',on);b.style.borderStyle=on?'solid':'dashed';b.style.borderColor=on?'#2D1B69':'#7C5CBF';b.style.zIndex=on?3:2;
+  });
+}
+document.addEventListener('pointermove',function(e){
+  if(!plDrag||!PL||e.pointerId!==plDrag.id)return;
+  const d=plDrag,f=PL.tpl.fields[d.k];if(!f)return;
+  const dx=(e.clientX-d.sx)/d.w,dy=(e.clientY-d.sy)/d.h;
+  if(d.mode==='move'){f.x=plClamp(d.f0.x+dx,0,1-f.w);f.y=plClamp(d.f0.y+dy,0,1-f.h);}
+  else{f.w=plClamp(d.f0.w+dx,0.03,1-f.x);f.h=plClamp(d.f0.h+dy,0.012,1-f.y);}
+  const b=document.querySelector('#pl-boxes [data-k="'+d.k+'"]');
+  if(b){b.style.left=(f.x*100)+'%';b.style.top=(f.y*100)+'%';b.style.width=(f.w*100)+'%';b.style.height=(f.h*100)+'%';}
+  if(!plRaf)plRaf=requestAnimationFrame(function(){plRaf=0;plRenderPage();});
+});
+['pointerup','pointercancel'].forEach(function(ev){
+  document.addEventListener(ev,function(e){if(plDrag&&e.pointerId===plDrag.id){plDrag=null;if(PL)renderPlacement();}});
+});
+function plSetting(){
+  if(!PL)return;const t=PL.tpl;
+  t.rowH=plClamp(parseFloat(v('pl-rowh'))||18,6,80);
+  t.fs=plClamp(parseFloat(v('pl-fs'))||10,5,24);
+  t.cols=[0,1,2,3,4].map(function(i){return Math.max(1,parseFloat(v('pl-c'+i))||1);});
+  t.align=[0,1,2,3,4].map(function(i){return v('pl-a'+i)||'left';});
+  plRenderPage();
+}
+function savePlacement(){
+  if(!PL)return;
+  if(!PL.tpl.fields.items){showToast('Add the Line items area so your sessions have somewhere to go.','error',3800);return;}
+  PL.svc.tpl=PL.tpl;
+  if(!saveState())return;
+  closePlacement();
+  renderServicesList();
+  showToast('Placement saved ✓','success');
 }
 
 // ── Settings ──────────────────────────────────────────────
@@ -2005,24 +2514,29 @@ function saveSettings(){
   updateSyncStatus(); saveState();
 }
 
-// ── Templates ─────────────────────────────────────────────
+// ── Session descriptions (per workplace) ─────────────────
 function renderTemplates(){
   const el=document.getElementById('templates-list');
-  const t=state.settings.templates||[];
+  const t=(activeSvc()||{}).sessionTypes||[];
   el.innerHTML=t.length?t.map((tpl,i)=>`
-    <div class="tpl-row"><span class="tpl-name">${tpl}</span><button class="tpl-remove" onclick="removeTpl(${i})">×</button></div>`).join('')
-    :'<div style="font-size:12px;color:var(--text-s);padding:4px 0 8px">No templates yet.</div>';
+    <div class="tpl-row"><span class="tpl-name">${govEsc(tpl)}</span><button class="tpl-remove" onclick="removeTpl(${i})">×</button></div>`).join('')
+    :'<div style="font-size:12px;color:var(--text-s);padding:4px 0 8px">No descriptions yet.</div>';
 }
 function addTemplate(){
+  const svc=activeSvc(); if(!svc) return;
   const val=document.getElementById('new-tpl-input').value.trim();
   if(!val) return;
-  if(!state.settings.templates) state.settings.templates=[];
-  state.settings.templates.push(val);
+  if(!svc.sessionTypes) svc.sessionTypes=[];
+  svc.sessionTypes.push(val);
   document.getElementById('new-tpl-input').value='';
-  saveState(); renderTemplates(); rebuildTRBulkDropdown();
-  showToast('Template added ✓','success');
+  saveState(); renderTemplates(); rebuildTRBulkDropdown(); renderQuickAdd();
+  showToast('Description added ✓','success');
 }
-function removeTpl(i){state.settings.templates.splice(i,1);saveState();renderTemplates();rebuildTRBulkDropdown();}
+function removeTpl(i){
+  const svc=activeSvc(); if(!svc||!svc.sessionTypes) return;
+  svc.sessionTypes.splice(i,1);
+  saveState(); renderTemplates(); rebuildTRBulkDropdown(); renderQuickAdd();
+}
 
 
 // ── BILLING RULE ADD/DELETE ───────────────────────────────
@@ -2039,7 +2553,7 @@ function deleteBillingRule(ruleId){
 let addBillingRuleCat=null;
 function openAddBillingRule(cat){
   addBillingRuleCat=cat;
-  const labels={'11':'PAR 1:1 Regular',mcis:'PAR 1:1 MCIS',group:'PAR Group',meeting:'PAR Team Meeting',tr:'TR Sessions'};
+  const labels={'11':'PAR 1:1 Regular',mcis:'PAR 1:1 MCIS',group:'PAR Group',meeting:'PAR Team Meeting',tr:'TR Sessions',custom:'Scenarios for '+((activeSvc()||{}).name||'this workplace')};
   document.getElementById('add-rule-cat-label').textContent=labels[cat]||cat;
   document.getElementById('new-billing-rule-name').value='';
   document.getElementById('new-billing-rule-hours').value='1';
@@ -2050,7 +2564,7 @@ function confirmAddBillingRule(){
   if(!name){showToast('Enter a scenario name.','error');return;}
   const hours=parseFloat(document.getElementById('new-billing-rule-hours').value)||0;
   const id='r_custom_'+Date.now();
-  state.billingRules.push({id,cat:addBillingRuleCat,label:name,hours});
+  state.billingRules.push({id,svcId:rulesSvcId(activeSvc()),cat:addBillingRuleCat,label:name,hours});
   saveState(); renderBillingRulesTable();
   closeModal('modal-add-billing-rule');
   showToast(name+' added ✓','success');
@@ -2073,7 +2587,10 @@ function confirmResolve(ok){
 }
 
 // ── Persist ───────────────────────────────────────────────
-function saveState(){localStorage.setItem('invoice_mgr_v6',JSON.stringify(state));}
+function saveState(){
+  try{localStorage.setItem('invoice_mgr_v6',JSON.stringify(state));return true;}
+  catch(e){showToast('Could not save. Your device storage may be full.','error',4500);return false;}
+}
 function loadState(){
   const raw=localStorage.getItem('invoice_mgr_v6')||localStorage.getItem('invoice_mgr_v5')||localStorage.getItem('invoice_mgr_v4');
   if(!raw) return;
@@ -2175,13 +2692,13 @@ async function captureInvoiceCanvas(width){
   const gps=src.querySelectorAll('.gov-page');
   const wrap=document.createElement('div');
   if(gps.length){
-    wrap.style.cssText='position:fixed;left:-10000px;top:0;width:612px;background:#fff;pointer-events:none';
+    wrap.style.cssText='position:fixed;left:-10000px;top:0;width:'+(gps[0].offsetWidth||612)+'px;background:#fff;pointer-events:none';
     const cl=[];gps.forEach(g=>{const c=g.cloneNode(true);c.style.transform='none';c.style.transformOrigin='0 0';c.style.marginBottom='0';wrap.appendChild(c);cl.push(c);});
     document.body.appendChild(wrap);
     try{
       if(document.fonts&&document.fonts.ready){try{await document.fonts.ready;}catch(e){}}
       const cvs=[];
-      for(const c of cl){const cv=await html2canvas(c,{scale:3,useCORS:true,backgroundColor:'#fff',logging:false,width:612,height:792,windowWidth:612,windowHeight:792,scrollX:0,scrollY:0});cv._fullPage=true;cvs.push(cv);}
+      for(const c of cl){const PW=c.offsetWidth||612,PH=c.offsetHeight||792;const cv=await html2canvas(c,{scale:3,useCORS:true,backgroundColor:'#fff',logging:false,width:PW,height:PH,windowWidth:PW,windowHeight:PH,scrollX:0,scrollY:0});cv._fullPage=true;cvs.push(cv);}
       cvs[0]._more=cvs.slice(1);return cvs[0];
     }finally{wrap.remove();}
   }
