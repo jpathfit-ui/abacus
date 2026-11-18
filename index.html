@@ -573,12 +573,25 @@ table.gov-tbl{width:100%;border-collapse:collapse;table-layout:fixed;font-size:9
         <div class="field"><label>Invoice Format</label>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
             <button type="button" id="wp-mode-upload" onclick="setWpMode('upload')">Upload my template</button>
-            <button type="button" id="wp-mode-simple" onclick="setWpMode('simple')">Use simple layout</button>
+            <button type="button" id="wp-mode-general" onclick="setWpMode('general')">Use a general template</button>
           </div>
+        </div>
+        <div class="field" id="wp-general-wrap" style="display:none">
+          <div style="font-size:12px;color:var(--text-s);line-height:1.5">No invoice of your own? This is a clean, standard invoice with your name, bill to, invoice number, date, contract number, line items, total and signature already in place. You can adjust it afterwards or swap in your own file.</div>
         </div>
         <div class="field" id="wp-upload-wrap">
           <input type="file" id="wp-file" accept="application/pdf,image/*" onchange="onWpFile(this)">
           <div id="wp-file-status" style="font-size:12px;color:var(--text-s);margin-top:8px;line-height:1.5"></div>
+          <button type="button" class="btn btn-ghost btn-sm" onclick="openPrompt('invoice')" style="width:auto;padding:8px 12px;font-size:12px;margin-top:8px">No invoice file? Get a prompt to make one</button>
+        </div>
+      </div>
+      <div class="field" id="wp-logo-wrap" style="display:none">
+        <label>Logo (optional)</label>
+        <input type="file" id="wp-logo" accept="image/*" onchange="onWpLogo(this)">
+        <div id="wp-logo-status" style="font-size:12px;color:var(--text-s);margin-top:8px;line-height:1.5"></div>
+        <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
+          <button type="button" class="btn btn-secondary btn-sm" onclick="openPrompt('logo')" style="width:auto;padding:8px 12px;font-size:12px">Get a prompt to make a logo</button>
+          <button type="button" class="btn btn-ghost btn-sm" onclick="removeWpLogo()" style="width:auto;padding:8px 12px;font-size:12px">Remove logo</button>
         </div>
       </div>
       <div id="wp-dynamic"></div>
@@ -598,6 +611,19 @@ table.gov-tbl{width:100%;border-collapse:collapse;table-layout:fixed;font-size:9
         <div class="field" style="margin-top:12px"><label>Replace Template File</label><input type="file" id="wp-replace-file" accept="application/pdf,image/*" onchange="onWpReplaceFile(this)"></div>
       </div>
       <button class="btn btn-primary" id="wp-save-btn" onclick="saveWorkplace()">Add Workplace</button>
+    </div>
+  </div>
+</div>
+
+<!-- PROMPT MODAL (copy a prompt for Claude or ChatGPT) -->
+<div class="modal-overlay" id="modal-prompt">
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <div class="modal-head"><div class="modal-title" id="prompt-title">Prompt</div><button class="modal-close" onclick="closeModal('modal-prompt')">✕</button></div>
+    <div class="modal-body">
+      <div id="prompt-help" style="font-size:12px;color:var(--text-s);line-height:1.5;margin-bottom:10px"></div>
+      <div class="field"><textarea id="prompt-text" readonly style="height:260px;font-size:13px;line-height:1.5"></textarea></div>
+      <button class="btn btn-primary" onclick="copyPrompt()">Copy prompt</button>
     </div>
   </div>
 </div>
@@ -1996,7 +2022,7 @@ const WP_SPECS={
 };
 const WP_DEFAULT_TEXT={thankyou:'Thank you for your continued partnership and support.',paymentMsg:'Please remit payment via Interac e-Transfer. Include the invoice # as the reference.'};
 const WP_FILE_HINT='Upload your existing invoice as a PDF or a photo. You will place the fields on it in the next step.';
-let wpEditId=null, wpMode='upload', wpPending=null;
+let wpEditId=null, wpMode='upload', wpPending=null, wpLogo=undefined; // wpLogo: undefined = unchanged, null = none, string = new logo
 
 function wpToggleStyle(on){
   return 'padding:12px 8px;border:2px solid '+(on?'var(--p-dark)':'var(--cream-b)')+';border-radius:10px;font-family:Inter,sans-serif;font-size:13px;font-weight:700;cursor:pointer;background:'+(on?'var(--p-dark)':'#fff')+';color:'+(on?'#fff':'var(--text-s)')+';-webkit-appearance:none;touch-action:manipulation';
@@ -2004,9 +2030,11 @@ function wpToggleStyle(on){
 function setWpMode(m){
   wpMode=m;
   document.getElementById('wp-mode-upload').style.cssText=wpToggleStyle(m==='upload');
-  document.getElementById('wp-mode-simple').style.cssText=wpToggleStyle(m==='simple');
+  document.getElementById('wp-mode-general').style.cssText=wpToggleStyle(m==='general');
   document.getElementById('wp-upload-wrap').style.display=m==='upload'?'block':'none';
-  wpRenderFields(m==='upload'?'custom':'private',{});
+  document.getElementById('wp-general-wrap').style.display=m==='general'?'block':'none';
+  document.getElementById('wp-logo-wrap').style.display=m==='general'?'block':'none';
+  wpRenderFields('custom',{});
 }
 function wpRenderFields(type,vals){
   const host=document.getElementById('wp-dynamic');
@@ -2034,7 +2062,7 @@ function wpContractInput(){
   wrap.style.display=(svc&&oldC&&newC&&oldC!==newC&&hasLog)?'block':'none';
 }
 function openWorkplaceModal(id){
-  wpEditId=id||null; wpPending=null;
+  wpEditId=id||null; wpPending=null; wpLogo=id?undefined:null;
   const svc=id?state.services.find(function(s){return s.id===id;}):null;
   document.getElementById('wp-file').value='';
   document.getElementById('wp-file-status').textContent=WP_FILE_HINT;
@@ -2047,6 +2075,9 @@ function openWorkplaceModal(id){
   document.getElementById('wp-contract-restart').style.display='none';
   document.getElementById('wp-new-contract').checked=true;
   document.getElementById('wp-tpl-tools').style.display=(svc&&svc.templateType==='custom')?'block':'none';
+  document.getElementById('wp-logo').value='';
+  document.getElementById('wp-logo-wrap').style.display=(svc&&svc.tplKind==='general')?'block':'none';
+  document.getElementById('wp-logo-status').textContent=svc?(svc.logo?'Your logo is on the invoice. Choose a file to replace it.':'No logo yet. A PNG with a transparent background looks best.'):'A PNG with a transparent background looks best. You can skip this and add one later.';
   if(svc) wpRenderFields(svc.templateType,svc); else setWpMode('upload');
   openModal('modal-workplace');
 }
@@ -2074,13 +2105,52 @@ async function onWpReplaceFile(inp){
   }catch(e){showToast('Could not read that file.','error');console.error(e);}
   inp.value='';
 }
+function loadImg(src){return new Promise(function(res,rej){const i=new Image();i.onload=function(){res(i);};i.onerror=rej;i.src=src;});}
+async function onWpLogo(inp){
+  const f=inp.files&&inp.files[0];if(!f)return;
+  const st=document.getElementById('wp-logo-status');
+  try{
+    const url=await new Promise(function(res,rej){const r=new FileReader();r.onload=function(){res(r.result);};r.onerror=rej;r.readAsDataURL(f);});
+    const img=await loadImg(url);
+    const iw=img.naturalWidth||400,ih=img.naturalHeight||200,sc=Math.min(1,600/iw,300/ih);
+    const cv=document.createElement('canvas');cv.width=Math.max(1,Math.round(iw*sc));cv.height=Math.max(1,Math.round(ih*sc));
+    cv.getContext('2d').drawImage(img,0,0,cv.width,cv.height);
+    wpLogo=cv.toDataURL('image/png');
+    st.textContent='Logo ready: '+f.name;
+  }catch(e){wpLogo=undefined;st.textContent='Could not read that image. Try a PNG or JPG.';console.error(e);}
+}
+function removeWpLogo(){
+  wpLogo=null;document.getElementById('wp-logo').value='';
+  document.getElementById('wp-logo-status').textContent=wpEditId?'Logo will be removed when you save.':'No logo.';
+}
+function logoPrompt(name){
+  return 'Please create a logo for my business, "'+name+'".\n\nBefore you start, ask me two quick questions: what I do, and the look I want (for example modern, friendly, calm or bold).\n\nRequirements:\n- A simple, clean design that stays readable when printed small on a white invoice\n- A wide or square shape, with some empty space around it\n- A transparent background if possible\n- Deliver it as a downloadable PNG file, at least 1000 pixels wide\n- If you can only make an SVG, give me the SVG and tell me the easiest way to save it as a PNG';
+}
+function invoicePrompt(){
+  return 'Please create a blank, professional invoice template that I can upload into my invoicing app.\n\nRequirements:\n- US Letter size, portrait, delivered as a PDF (or a PNG at least 1600 pixels tall)\n- Clean and simple, with a white background and one accent colour\n- Leave every value blank. Print only labels and lines, laid out clearly like this:\n  - Title: INVOICE\n  - Top right: Invoice number, Invoice date, Contract number and Billing period, each with a blank line\n  - Top left: a From area for my name and address\n  - Below that: a boxed Bill to area\n  - A table with the columns Date, Description, Hours, Rate and Amount, with about 16 empty rows\n  - Bottom right: Total due, with a blank line\n  - Bottom left: a Signature line\n- No sample text, no made-up names and no logo';
+}
+function openPrompt(kind){
+  const logo=kind==='logo', name=v('wp-name').trim()||'my business';
+  document.getElementById('prompt-title').textContent=logo?'Prompt: Make a Logo':'Prompt: Make an Invoice';
+  document.getElementById('prompt-help').textContent=logo
+    ?'Copy this, paste it into Claude or ChatGPT, then save the picture it makes and choose that file under Logo.'
+    :'Copy this, paste it into Claude or ChatGPT, then download the file it makes and upload it here. Check it looks right. You will place your fields on it next.';
+  document.getElementById('prompt-text').value=logo?logoPrompt(name):invoicePrompt();
+  openModal('modal-prompt');
+}
+function copyPrompt(){
+  const ta=document.getElementById('prompt-text');
+  function done(){showToast('Prompt copied. Paste it into Claude or ChatGPT.','success',3500);}
+  function fallback(){ta.focus();ta.select();ta.setSelectionRange(0,ta.value.length);try{document.execCommand('copy');done();}catch(e){showToast('Press and hold the text to copy it.','error',3500);}}
+  if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(ta.value).then(done,fallback);else fallback();
+}
 function seedCustomRules(svc){
   const h=svc.hrs||1;
   [['happened','Happened',h],['noshow','No Show',h],['cancel24','Cancelled, less than 24 hours notice',h],['cancel24p','Cancelled, more than 24 hours notice',0]].forEach(function(r){
     state.billingRules.push({id:'r_'+svc.id+'_'+r[0],svcId:svc.id,cat:'custom',label:r[1],hours:r[2]});
   });
 }
-function saveWorkplace(){
+async function saveWorkplace(){
   const name=v('wp-name').trim();
   if(!name){showToast('Enter a workplace name.','error');return;}
   const rate=parseFloat(v('wp-rate'))||40, hrs=parseFloat(v('wp-hrs'))||1;
@@ -2090,6 +2160,10 @@ function saveWorkplace(){
     const spec=wpReadFields(svc.templateType);
     const oldC=svc.contract||'', hasContract=spec.contract!=null, newC=hasContract?spec.contract:oldC;
     Object.assign(svc,spec,{name:name,rate:rate,hrs:hrs});
+    if(svc.tplKind==='general'&&wpLogo!==undefined){
+      try{svc.logo=wpLogo||'';svc.tpl.img=(await makeGeneralTemplate(svc.logo)).img;}
+      catch(e){showToast('Could not use that logo. Try a PNG or JPG.','error',3500);console.error(e);return;}
+    }
     if(hasContract&&oldC!==newC){
       const restart=document.getElementById('wp-contract-restart').style.display!=='none'&&document.getElementById('wp-new-contract').checked;
       // Not a new contract (first time set, or a typo fix): existing invoices keep counting under the new value.
@@ -2109,9 +2183,10 @@ function saveWorkplace(){
     svc={id:id,name:name,templateType:'custom',rate:rate,hrs:hrs,contract:spec.contract||'',billTo:spec.billTo||'',sessionTypes:['Session'],
       tpl:{img:wpPending.img,pw:wpPending.pw,ph:wpPending.ph,fields:{},cols:[16,44,10,14,16],rowH:18,fs:10}};
   }else{
-    const spec=wpReadFields('private');
-    svc={id:id,name:name,templateType:'private',rate:rate,hrs:hrs,company:spec.company||name,client:spec.client||'',clientEmail:spec.clientEmail||'',emt:spec.emt||'',
-      thankyou:spec.thankyou||WP_DEFAULT_TEXT.thankyou,showPayment:spec.showPayment!==false,paymentMsg:spec.paymentMsg||WP_DEFAULT_TEXT.paymentMsg,sessionTypes:['Session']};
+    const spec=wpReadFields('custom');
+    svc={id:id,name:name,templateType:'custom',tplKind:'general',logo:wpLogo||'',rate:rate,hrs:hrs,contract:spec.contract||'',billTo:spec.billTo||'',sessionTypes:['Session']};
+    try{svc.tpl=await makeGeneralTemplate(svc.logo);}
+    catch(e){showToast('Could not use that logo. Try a PNG or JPG.','error',3500);console.error(e);return;}
   }
   state.services.push(svc);
   state.sessions[id]=[];
@@ -2124,7 +2199,7 @@ function saveWorkplace(){
   rebuildServiceDropdowns();renderServicesList();
   switchService(id);
   closeModal('modal-workplace');
-  if(svc.templateType==='custom'){
+  if(svc.templateType==='custom'&&svc.tplKind!=='general'){
     showToast(name+' added. Now place your fields.','success',3500);
     openPlacement(id);
   }else{
@@ -2135,7 +2210,7 @@ function renderServicesList(){
   const el=document.getElementById('services-list');
   el.innerHTML=state.services.map(function(s){
     const gov=s.templateType==='government', cus=s.templateType==='custom';
-    const kind=gov?'Government':(cus?'Your Template':'Simple Layout');
+    const kind=gov?'Government':(cus?(s.tplKind==='general'?'General Template':'Your Template'):'Simple Layout');
     const meta=gov?(s.payee||''):(cus?'':(s.company||''));
     const needsC=(gov||cus)&&!(s.contract||'').trim();
     const contractLine=(gov||cus)?(needsC?'<div class="svc-meta" style="color:var(--danger);font-weight:600">Contract number not set</div>':'<div class="svc-meta">Contract # '+govEsc(s.contract)+'</div>'):'';
@@ -2199,6 +2274,39 @@ async function ingestTemplateFile(file){
   let q=0.85,out=cv.toDataURL('image/jpeg',q);
   while(out.length>1400000&&q>0.5){q-=0.1;out=cv.toDataURL('image/jpeg',q);}
   return {img:out,pw:pw,ph:ph};
+}
+
+// ── General template (for anyone without an invoice of their own) ──
+// Drawn here as a Letter page, with every field already placed.
+async function makeGeneralTemplate(logo){
+  const S=1275/612,cv=document.createElement('canvas');cv.width=1275;cv.height=1650;
+  const c=cv.getContext('2d');c.scale(S,S);
+  const ACC='#2D1B69',INK='#1a1a1a',MUTE='#666',LINE='#9a9a9a',FAINT='#e6e6ea',F='Arial, Helvetica, sans-serif';
+  c.fillStyle='#fff';c.fillRect(0,0,612,792);
+  function txt(s,x,y,size,color,bold,align){c.font=(bold?'bold ':'')+size+'px '+F;c.fillStyle=color;c.textAlign=align||'left';c.textBaseline='alphabetic';c.fillText(s,x,y);}
+  function hl(x1,x2,y,w,col){c.strokeStyle=col||LINE;c.lineWidth=w||0.75;c.beginPath();c.moveTo(x1,y);c.lineTo(x2,y);c.stroke();}
+  txt('INVOICE',48,72,30,ACC,true);
+  c.fillStyle=ACC;c.fillRect(48,82,516,3);
+  [['Invoice number',114],['Invoice date',136],['Contract / PO number',158],['Billing period',180]].forEach(function(r){txt(r[0],456,r[1]-4,9,MUTE,true,'right');hl(462,564,r[1]);});
+  txt('From',48,104,9,MUTE,true);
+  txt('Bill to',48,206,9,MUTE,true);
+  c.strokeStyle=LINE;c.lineWidth=0.75;c.strokeRect(48,212,270,64);
+  c.fillStyle=ACC;c.fillRect(48,300,516,22);
+  txt('Date',50,314.5,9,'#fff',true);txt('Description',140,314.5,9,'#fff',true);
+  txt('Hours',392,314.5,9,'#fff',true,'center');txt('Rate',488,314.5,9,'#fff',true,'right');txt('Amount',562,314.5,9,'#fff',true,'right');
+  for(let k=1;k<16;k++)hl(48,564,322+18*k,0.5,FAINT);
+  c.strokeStyle=LINE;c.lineWidth=0.75;c.strokeRect(48,322,516,288);
+  txt('TOTAL DUE',462,640,12,INK,true,'right');hl(470,564,644,1.5,INK);
+  hl(48,288,702,0.9,INK);txt('Signature',48,714,9,MUTE,false);
+  txt('Thank you for your business.',306,760,9,MUTE,false,'center');
+  if(logo){
+    const im=await loadImg(logo),bx=364,by=20,bw=200,bh=56,r=Math.min(bw/im.width,bh/im.height),w=im.width*r,h=im.height*r;
+    c.drawImage(im,bx+bw-w,by+(bh-h)/2,w,h);
+  }
+  const px=function(x,y,w,h){return {x:x/612,y:y/792,w:w/612,h:h/792};};
+  return {img:cv.toDataURL('image/jpeg',0.9),pw:612,ph:792,fs:10,rowH:18,cols:[90,226,56,70,74],align:['left','left','center','right','right'],
+    fields:{invNum:px(462,100,102,14),invDate:px(462,122,102,14),contract:px(462,144,102,14),period:px(462,166,102,14),
+      name:px(48,110,270,14),from:px(48,126,270,44),billTo:px(54,216,258,56),items:px(48,322,516,288),total:px(470,626,94,16),sig:px(48,666,240,34)}};
 }
 
 // ── Template rendering (shared by the placement editor, preview and PDF) ──
