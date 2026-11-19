@@ -449,7 +449,7 @@ table.gov-tbl{width:100%;border-collapse:collapse;table-layout:fixed;font-size:9
       <button class="modal-close" onclick="closeModal('modal-preview')">✕</button>
     </div>
     <!-- Mode toggle -->
-    <div style="display:flex;gap:8px;padding:10px 18px 0">
+    <div id="preview-mode-row" style="display:flex;gap:8px;padding:10px 18px 0">
       <button id="preview-mode-monthly" onclick="setPreviewMode('monthly')"
         style="flex:1;padding:9px;border:2px solid var(--p-dark,#2D1B69);border-radius:8px;font-family:Inter,sans-serif;font-size:13px;font-weight:700;cursor:pointer;background:var(--p-dark,#2D1B69);color:#fff;transition:all .15s">
         By Month
@@ -469,6 +469,7 @@ table.gov-tbl{width:100%;border-collapse:collapse;table-layout:fixed;font-size:9
       <button onclick="previewNav(1)" style="background:var(--p-soft);border:none;border-radius:8px;width:36px;height:36px;font-size:18px;cursor:pointer;color:var(--p-mid);display:flex;align-items:center;justify-content:center">›</button>
     </div>
     <div class="modal-body">
+      <div class="field" style="margin:0 0 10px"><label>Invoice number (edit to change)</label><input type="text" id="prev-num" oninput="previewNumEdit(this.value)"></div>
       <div id="inv-preview-doc"></div>
       <div style="margin-top:14px;display:flex;flex-direction:column;gap:8px">
         <button class="btn btn-primary" id="preview-download-btn" onclick="downloadCurrentPreview()">⬇ Download This Invoice</button>
@@ -1103,6 +1104,14 @@ function quickAdd(){
     const statusLabel=svcStatuses().find(s=>s.ruleId===statusRuleId)?.value||'Happened';
     session={id:Date.now()+Math.random(),date,service:desc,cat:svcCat(activeSvc())||'tr',statusRuleId,status:statusLabel,rate,hrs,invoiced:false};
   }
+  const dup=state.sessions[sid].some(s=>s.date===session.date&&s.service===session.service);
+  if(dup){
+    appConfirm('A session for '+session.service+' on '+date+' already exists. Add anyway?','Add Anyway','safe',function(ok){ if(ok) commitQuickAdd(sid,session); });
+    return;
+  }
+  commitQuickAdd(sid,session);
+}
+function commitQuickAdd(sid,session){
   state.sessions[sid].push(session);
   sortSessions(sid);
   saveState(); renderSessions(); updateSummary();
@@ -1499,7 +1508,7 @@ function showTab(id,el){
   if(id==='reports') renderReports();
 }
 function openModal(id){document.getElementById(id).classList.add('open');}
-function closeModal(id){document.getElementById(id).classList.remove('open');}
+function closeModal(id){document.getElementById(id).classList.remove('open');if(id==='modal-preview')restoreRegenDate();}
 document.querySelectorAll('.modal-overlay').forEach(o=>o.addEventListener('click',e=>{if(e.target===o&&!o.dataset.sticky)o.classList.remove('open');}));
 
 function switchService(id){
@@ -1560,6 +1569,8 @@ function setPreviewMode(mode){
 }
 
 function openPreview(targetYM){
+  restoreRegenDate();
+  const mrow=document.getElementById('preview-mode-row'); if(mrow) mrow.style.display='flex';
   const allSessions = activeSessions();
   const svc = activeSvc()||{};
   if(!tplReady(svc)){
@@ -1612,13 +1623,68 @@ function openPreview(targetYM){
   openModal('modal-preview');
 }
 
+let regenSavedDate=null;
+function restoreRegenDate(){
+  if(regenSavedDate!==null){
+    const el=document.getElementById('inv-date-input'); if(el) el.value=regenSavedDate;
+    regenSavedDate=null;
+  }
+  if(previewMode==='regen') previewMode='monthly';
+}
+function previewNumEdit(val){
+  document.getElementById('inv-num-input').value=val;
+  let ss;
+  if(previewMode==='combined') ss=activeSessions().filter(s=>!s.invoiced);
+  else { const it=previewMonths[previewIndex]; if(it){ it.invNum=val; ss=it.sessions; } }
+  if(ss) buildInvoiceHtml(activeSvc()||{}, ss, val||'');
+}
+function regenerateInvoice(idx){
+  const inv=state.invoiceLog[idx]; if(!inv) return;
+  const sid=inv.serviceId||state.activeServiceId;
+  const svc=state.services.find(s=>s.id===sid);
+  if(!svc){ showToast('That workplace no longer exists.','error',3500); return; }
+  const all=state.sessions[sid]||[];
+  let ss=Array.isArray(inv.sessionIds)
+    ? all.filter(s=>inv.sessionIds.indexOf(s.id)>=0)
+    : all.filter(s=>s.invoiced&&String(s.invoiceNum)===String(inv.num));
+  if(!Array.isArray(inv.sessionIds)&&ss.length&&calcPeriod(ss).label!==inv.period){
+    const f=ss.filter(s=>calcPeriod([s]).label===inv.period); if(f.length) ss=f;
+  }
+  if(!ss.length){ showToast('Could not find the sessions for that invoice.','error',3500); return; }
+  if(!tplReady(svc)){ showToast('Place the fields on your template first.','error',3500); openPlacement(svc.id); return; }
+  if(sid!==state.activeServiceId) switchService(sid);
+  ss=ss.slice().sort((a,b)=>(a.date||'').localeCompare(b.date||''));
+  restoreRegenDate();
+  regenSavedDate=v('inv-date-input');
+  if(inv.invoiceDate) document.getElementById('inv-date-input').value=inv.invoiceDate;
+  previewMode='regen';
+  previewMonths=[{ym:(ss[0].date||'').substring(0,7),sessions:ss,invNum:String(inv.num),regen:idx,period:inv.period}];
+  previewIndex=0;
+  const mrow=document.getElementById('preview-mode-row'); if(mrow) mrow.style.display='none';
+  const nav=document.getElementById('preview-nav'); if(nav) nav.style.display='none';
+  renderPreviewPage();
+  openModal('modal-preview');
+}
 function previewNav(dir){
+  if(previewMode==='regen') return;
   previewIndex = Math.max(0, Math.min(previewMonths.length-1, previewIndex+dir));
   renderPreviewPage();
 }
 
 function renderPreviewPage(){
   const nav = document.getElementById('preview-nav');
+  const pn = document.getElementById('prev-num');
+  if(previewMode==='regen'){
+    const it=previewMonths[previewIndex]; if(!it) return;
+    document.getElementById('preview-modal-title').textContent='Regenerate Invoice';
+    document.getElementById('preview-month-label').textContent='Invoice #'+it.invNum;
+    document.getElementById('preview-month-counter').textContent=it.period||'';
+    if(nav) nav.style.display='flex';
+    document.getElementById('inv-num-input').value=it.invNum;
+    if(pn) pn.value=it.invNum;
+    buildInvoiceHtml(activeSvc()||{}, it.sessions, it.invNum);
+    return;
+  }
   if(previewMode==='combined'){
     // Combined: all uninvoiced sessions, last generated invoice number
     const allSessions = activeSessions().filter(s=>!s.invoiced);
@@ -1629,6 +1695,7 @@ function renderPreviewPage(){
     document.getElementById('preview-month-label').textContent='All Sessions Combined';
     document.getElementById('preview-month-counter').textContent=allSessions.length+' sessions · 1 invoice';
     document.getElementById('inv-num-input').value=invNum;
+    if(pn) pn.value=invNum;
     const svc=activeSvc()||{};
     buildInvoiceHtml(svc,allSessions,invNum);
   } else {
@@ -1643,11 +1710,17 @@ function renderPreviewPage(){
       `${previewIndex+1} of ${previewMonths.length} month${previewMonths.length!==1?'s':''}`;
     if(nav) nav.style.display = previewMonths.length>1 ? 'flex' : 'none';
     document.getElementById('inv-num-input').value = item.invNum;
+    if(pn) pn.value = item.invNum;
     buildInvoiceHtml(svc, item.sessions, item.invNum);
   }
 }
 
 async function downloadCurrentPreview(){
+  if(previewMode==='regen'){
+    const it=previewMonths[0]; if(!it) return;
+    await generateInvoice(it.ym, it.invNum, it.sessions, it.regen);
+    return;
+  }
   if(previewMode==='combined'){
     // Generate one invoice for all uninvoiced sessions
     const allSessions = activeSessions().filter(s=>!s.invoiced);
@@ -1874,7 +1947,7 @@ function fitGovPreview(){
 window.addEventListener('resize',function(){try{fitGovPreview();}catch(e){}});
 
 // ── Generate PDF ───────────────────────────────────────────
-async function generateInvoice(targetYM, invNum, explicitSessions){
+async function generateInvoice(targetYM, invNum, explicitSessions, regenIdx){
   let sessions;
   if(explicitSessions){
     sessions=explicitSessions;
@@ -1914,13 +1987,25 @@ async function generateInvoice(targetYM, invNum, explicitSessions){
     const label=(svc.templateType==='government'?(svc.payee||'PAR'):svc.templateType==='custom'?(svc.name||'Invoice'):(svc.client||'Client')).replace(/\s+/g,'-');
     doc.save(`Invoice-${invNum}_${label}_${period.label.replace(/[\s\/]/g,'-')}.pdf`);
 
+    if(regenIdx!=null){
+      const entry=state.invoiceLog[regenIdx];
+      if(entry&&String(entry.num)!==String(invNum)){
+        const ids=new Set(sessions.map(s=>s.id));
+        state.sessions[state.activeServiceId].forEach(s=>{ if(ids.has(s.id)) s.invoiceNum=String(invNum); });
+        entry.num=String(invNum);
+      }
+      saveState(); renderInvoiceLog(); renderSessions();
+      closeModal('modal-preview');
+      showToast('Invoice #'+invNum+' regenerated ✓','success',3000);
+      return;
+    }
     // Mark these sessions as invoiced
     const invoicedIds=new Set(sessions.map(s=>s.id));
     state.sessions[state.activeServiceId].forEach(s=>{
       if(invoicedIds.has(s.id)){ s.invoiced=true; s.invoiceNum=invNum; }
     });
 
-    const logEntry={num:invNum,serviceId:state.activeServiceId,serviceName:svc.name||'',
+    const logEntry={num:invNum,sessionIds:sessions.map(s=>s.id),invoiceDate:v('inv-date-input'),serviceId:state.activeServiceId,serviceName:svc.name||'',
       client:svc.templateType==='government'?(svc.payee||''):svc.templateType==='custom'?(svc.name||''):(svc.client||''),
       period:period.label,dateGenerated:new Date().toLocaleDateString('en-CA'),
       sessions:sessions.length,hours:hours.toFixed(1),total:total.toFixed(2),
@@ -1998,7 +2083,7 @@ function renderReports(){
 function renderInvoiceLog(){
   const el=document.getElementById('invoice-log-list');
   if(!state.invoiceLog.length){el.innerHTML='<div style="text-align:center;padding:24px;color:var(--text-s);font-size:13px;">No invoices yet.</div>';return;}
-  el.innerHTML=state.invoiceLog.map(inv=>`
+  el.innerHTML=state.invoiceLog.map((inv,li)=>`
     <div class="log-row">
       <div class="log-badge">#${inv.num}</div>
       <div class="log-info">
@@ -2008,6 +2093,7 @@ function renderInvoiceLog(){
       <div class="log-right">
         <div class="log-amt">$${parseFloat(inv.total||0).toFixed(2)}</div>
         <div class="log-sync ${inv.synced?'synced':'pending'}">${inv.synced?'Synced':'Pending'}</div>
+        <button class="btn btn-ghost" style="padding:4px 10px;font-size:11px;margin-top:4px" onclick="regenerateInvoice(${li})">Regenerate</button>
       </div>
     </div>`).join('');
 }
